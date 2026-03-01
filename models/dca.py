@@ -26,6 +26,7 @@ class FixedSparseLinear(nn.Module):
 
         with torch.no_grad():
             flat_indices = torch.randperm(total_connections)[:nnz]
+            flat_indices, _ = flat_indices.sort()
             row_indices = flat_indices // in_features
             col_indices = flat_indices % in_features
             sparse_indices = torch.stack([row_indices, col_indices], dim=0)
@@ -38,6 +39,7 @@ class FixedSparseLinear(nn.Module):
         else:
             self.register_parameter("bias", None)
 
+        self._cached_weight = None
         self.reset_parameters()
 
     def reset_parameters(self) -> None:
@@ -45,15 +47,32 @@ class FixedSparseLinear(nn.Module):
         nn.init.uniform_(self.sparse_values, -bound, bound)
         if self.bias is not None:
             nn.init.uniform_(self.bias, -bound, bound)
+        self._cached_weight = None
+
+    def train(self, mode: bool = True):
+        super().train(mode)
+        if mode:
+            self._cached_weight = None
 
     def sparse_weight(self) -> torch.Tensor:
-        return torch.sparse_coo_tensor(
+        if not self.training and self._cached_weight is not None:
+            # Verificar si el device coincide por si hubo movimiento
+            if self._cached_weight.device == self.sparse_values.device:
+                return self._cached_weight
+            self._cached_weight = None
+
+        weight = torch.sparse_coo_tensor(
             self.sparse_indices,
             self.sparse_values,
             size=(self.out_features, self.in_features),
             device=self.sparse_values.device,
             dtype=self.sparse_values.dtype,
         ).coalesce()
+        
+        if not self.training:
+            self._cached_weight = weight
+            
+        return weight
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         original_shape = x.shape

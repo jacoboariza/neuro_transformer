@@ -52,6 +52,41 @@ def safe_div(value: float, denominator: float) -> float:
     return value / denominator
 
 
+def _probe_cuda_runtime() -> None:
+    """Valida CUDA ejecutando un kernel de embedding y sincronizando el stream."""
+    probe_embedding = nn.Embedding(8, 4, device="cuda")
+    probe_input = torch.tensor([[0, 1, 2, 3]], dtype=torch.long, device="cuda")
+    _ = probe_embedding(probe_input)
+    torch.cuda.synchronize()
+
+
+def select_benchmark_device() -> Tuple[str, Optional[str]]:
+    """
+    Selecciona dispositivo para benchmark con fallback seguro a CPU cuando
+    CUDA está visible pero no es compatible con la GPU/build actual.
+    """
+    if not torch.cuda.is_available():
+        return "cpu", "CUDA no está disponible en este entorno."
+
+    try:
+        capability = torch.cuda.get_device_capability(0)
+        required_arch = f"sm_{capability[0]}{capability[1]}"
+        supported_arches = torch.cuda.get_arch_list()
+
+        if supported_arches and required_arch not in supported_arches:
+            supported_msg = " ".join(supported_arches)
+            return (
+                "cpu",
+                "GPU detectada con CUDA capability "
+                f"{required_arch}, pero el build actual de PyTorch solo soporta: {supported_msg}.",
+            )
+
+        _probe_cuda_runtime()
+        return "cuda", None
+    except Exception as exc:  # pragma: no cover - depende de entorno CUDA
+        return "cpu", f"CUDA detectada, pero no utilizable con la instalación actual: {exc}"
+
+
 def _normalize_score_series(series: pd.Series, higher_is_better: bool) -> pd.Series:
     values = pd.to_numeric(series, errors="coerce")
     normalized = pd.Series(float("nan"), index=values.index, dtype=float)
@@ -266,8 +301,10 @@ def evaluate_custom_model_on_real_cases(
     criterion = nn.CrossEntropyLoss()
     timer = DeviceTimer(device_t)
 
-    total_loss = 0.0
-    total_correct = 0
+    # Acumuladores en GPU
+    total_loss_tensor = torch.tensor(0.0, device=device_t)
+    total_correct_tensor = torch.tensor(0.0, device=device_t)
+    
     total_tokens = 0
     batch_count = 0
     total_eval_ms = 0.0
@@ -286,16 +323,28 @@ def evaluate_custom_model_on_real_cases(
             loss = criterion(logits.reshape(-1, logits.size(-1)), targets.reshape(-1))
             predictions = logits.argmax(dim=-1)
 
-            total_loss += float(loss.item())
-            total_correct += int((predictions == targets).sum().item())
+            # Acumulación en GPU
+            total_loss_tensor += loss
+            total_correct_tensor += (predictions == targets).sum()
+            
+            # Métricas de conteo (CPU es rápido para esto si no depende de GPU)
+            # targets.numel() es conocido por el shape en CPU si el dataloader funciona bien,
+            # pero targets está en GPU. targets.size() devuelve torch.Size que está en CPU.
             total_tokens += int(targets.numel())
             batch_count += 1
+            
+            # Timer requiere sincronización puntual
             total_eval_ms += timer.stop(eval_start)
 
     elapsed = total_eval_ms / 1000.0
+    
+    # Sincronización final
+    avg_loss = float(total_loss_tensor.item()) / max(batch_count, 1)
+    accuracy = float(total_correct_tensor.item()) / max(total_tokens, 1)
+
     return {
-        "RealCaseLoss": safe_div(total_loss, max(batch_count, 1)),
-        "RealCaseAccuracy": safe_div(total_correct, max(total_tokens, 1)),
+        "RealCaseLoss": avg_loss,
+        "RealCaseAccuracy": accuracy,
         "RealCaseEvalSeconds": elapsed,
     }
 
@@ -309,8 +358,10 @@ def evaluate_reasoner_on_real_cases(
     criterion = nn.CrossEntropyLoss()
     timer = DeviceTimer(device_t)
 
-    total_loss = 0.0
-    total_correct = 0
+    # Acumuladores en GPU
+    total_loss_tensor = torch.tensor(0.0, device=device_t)
+    total_correct_tensor = torch.tensor(0.0, device=device_t)
+    
     total_tokens = 0
     batch_count = 0
     total_eval_ms = 0.0
@@ -329,16 +380,25 @@ def evaluate_reasoner_on_real_cases(
             loss = criterion(logits.reshape(-1, logits.size(-1)), targets.reshape(-1))
             predictions = logits.argmax(dim=-1)
 
-            total_loss += float(loss.item())
-            total_correct += int((predictions == targets).sum().item())
+            # Acumulación en GPU
+            total_loss_tensor += loss
+            total_correct_tensor += (predictions == targets).sum()
+            
             total_tokens += int(targets.numel())
             batch_count += 1
+            
+            # Timer requiere sincronización puntual
             total_eval_ms += timer.stop(eval_start)
 
     elapsed = total_eval_ms / 1000.0
+    
+    # Sincronización final
+    avg_loss = float(total_loss_tensor.item()) / max(batch_count, 1)
+    accuracy = float(total_correct_tensor.item()) / max(total_tokens, 1)
+
     return {
-        "RealCaseLoss": safe_div(total_loss, max(batch_count, 1)),
-        "RealCaseAccuracy": safe_div(total_correct, max(total_tokens, 1)),
+        "RealCaseLoss": avg_loss,
+        "RealCaseAccuracy": accuracy,
         "RealCaseEvalSeconds": elapsed,
     }
 
@@ -383,16 +443,18 @@ def train_reasoner_model(
 
     for _ in range(epochs):
         model.train()
-        total_loss = 0.0
+        # Acumuladores en GPU
+        total_loss_tensor = torch.tensor(0.0, device=device_t)
+        
         batch_count = 0
-        total_step_ms = 0.0
         total_tokens = 0
+        
+        # Medimos el epoch completo para throughput real
+        epoch_start_marker = timer.start()
 
         for inputs, targets in dataloader:
-            inputs = inputs.to(device_t)
-            targets = targets.to(device_t)
-
-            step_start = timer.start()
+            inputs = inputs.to(device_t, non_blocking=True)
+            targets = targets.to(device_t, non_blocking=True)
 
             optimizer.zero_grad()
             outputs = model(input_ids=inputs)
@@ -402,17 +464,22 @@ def train_reasoner_model(
             loss.backward()
             optimizer.step()
 
-            step_ms = timer.stop(step_start)
-
-            total_loss += float(loss.item())
-            batch_count += 1
-            total_step_ms += step_ms
+            # Acumulación asíncrona
+            total_loss_tensor += loss
+            
             total_tokens += int(targets.numel())
+            batch_count += 1
+        
+        # Sincronización única al final del epoch
+        epoch_ms = timer.stop(epoch_start_marker)
+        
+        epoch_loss = float(total_loss_tensor.item()) / max(batch_count, 1)
+        avg_step_ms = epoch_ms / max(batch_count, 1)
 
-        history["loss"].append(total_loss / max(batch_count, 1))
-        history["avg_step_ms"].append(total_step_ms / max(batch_count, 1))
+        history["loss"].append(epoch_loss)
+        history["avg_step_ms"].append(avg_step_ms)
         history["epoch_tokens"].append(total_tokens)
-        history["epoch_compute_ms"].append(total_step_ms)
+        history["epoch_compute_ms"].append(epoch_ms)
 
     return history
 
@@ -571,7 +638,13 @@ def run_benchmark(
     hf_reasoner_model_name: str = "HuggingFaceTB/SmolLM-135M",
     output_csv: str = "benchmark_results.csv",
 ) -> pd.DataFrame:
-    device = "cuda" if torch.cuda.is_available() else "cpu"
+    device, device_reason = select_benchmark_device()
+    print(f"[{'ADVERTENCIA' if device == 'cpu' else 'INFO'}] Ejecutando benchmark en dispositivo: {device.upper()}")
+    if device_reason:
+        print(f"  -> {device_reason}")
+    if device == "cpu":
+        print("  -> La ejecución en CPU será significativamente más lenta. Considere instalar PyTorch con soporte CUDA.")
+    
     device_t = torch.device(device)
     profiling_backend = "cuda_event" if device_t.type == "cuda" else "perf_counter"
 
@@ -688,6 +761,12 @@ def run_benchmark(
         row.update(compliance.to_dict())
 
         results.append(row)
+        
+        # Guardado incremental para no perder datos en ejecuciones largas
+        try:
+            pd.DataFrame(results).to_csv(output_csv, index=False)
+        except Exception as e:
+            print(f"[WARN] No se pudo guardar CSV parcial: {e}")
 
         print(
             f"[{model_name}] final_loss={row['FinalLoss']:.6f} "
@@ -760,4 +839,33 @@ def run_benchmark(
 
 
 if __name__ == "__main__":
-    run_benchmark()
+    import argparse
+
+    parser = argparse.ArgumentParser(description="Ejecutar benchmark de arquitecturas neuro-inspiradas.")
+    parser.add_argument("--epochs", type=int, default=6, help="Número de épocas de entrenamiento")
+    parser.add_argument("--batch-size", type=int, default=24, help="Tamaño del batch")
+    parser.add_argument("--num-samples", type=int, default=8_000, help="Número de muestras del dataset")
+    parser.add_argument("--seq-len", type=int, default=96, help="Longitud de la secuencia")
+    parser.add_argument("--embed-dim", type=int, default=64, help="Dimensión del embedding")
+    parser.add_argument("--num-workers", type=int, default=0, help="Número de workers para DataLoader")
+    parser.add_argument("--dataset-name", type=str, default=CANONICAL_DATASET, help="Nombre del dataset")
+    parser.add_argument("--dataset-config", type=str, default="sample-10BT", help="Configuración del dataset")
+    parser.add_argument("--tokenizer-name", type=str, default=CANONICAL_TOKENIZER, help="Nombre del tokenizer")
+    parser.add_argument("--no-real-cases", action="store_true", help="Desactivar evaluación en casos reales")
+    parser.add_argument("--output-csv", type=str, default="benchmark_results.csv", help="Archivo de salida CSV")
+
+    args = parser.parse_args()
+
+    run_benchmark(
+        epochs=args.epochs,
+        batch_size=args.batch_size,
+        num_samples=args.num_samples,
+        seq_len=args.seq_len,
+        embed_dim=args.embed_dim,
+        num_workers=args.num_workers,
+        dataset_name=args.dataset_name,
+        dataset_config=args.dataset_config,
+        tokenizer_name=args.tokenizer_name,
+        evaluate_real_cases=not args.no_real_cases,
+        output_csv=args.output_csv,
+    )

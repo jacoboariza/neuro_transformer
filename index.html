@@ -1,13 +1,61 @@
 <?php
 /* Template Name: Neuro Transformer SPA */
 ?>
-
-
+<!DOCTYPE html>
 <html lang="es" class="scroll-smooth">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Neuro Transformer | Evolución Bio-Inspirada de la IA</title>
+    
+    <!-- SEO Básico -->
+    <title>Neuro Transformer | Evolución Bio-Inspirada de la Inteligencia Artificial</title>
+    <meta name="description" content="Explora Neuro Transformer, un framework experimental de código abierto que integra avances en neurociencia (conectómica, neuroplasticidad) para crear arquitecturas de IA más eficientes que los LLMs actuales.">
+    <meta name="keywords" content="Inteligencia Artificial, Transformers, Neurociencia, Machine Learning, Deep Learning, LLM, IA Bio-inspirada, Python, PyTorch, jacoboariza">
+    <meta name="author" content="jacoboariza">
+    <meta name="robots" content="index, follow">
+    <link rel="canonical" href="https://www.jacoboariza.es/neuro-transformer">
+
+    <!-- Open Graph / Redes Sociales (Facebook, LinkedIn, etc.) -->
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://www.jacoboariza.es/neuro-transformer">
+    <meta property="og:title" content="Neuro Transformer | El Futuro de la IA está en la Biología">
+    <meta property="og:description" content="Descubre cómo la escasez neuronal, el sueño computacional y el procesamiento predictivo pueden solucionar la ineficiencia energética de los modelos de lenguaje actuales.">
+    <meta property="og:image" content="https://www.jacoboariza.es/wp-content/uploads/neuro-transformer-banner.jpg"> <!-- Nota: Asegúrate de subir una imagen real a esta ruta -->
+
+    <!-- Twitter Cards -->
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="Neuro Transformer | Evolución Bio-Inspirada de la IA">
+    <meta name="twitter:description" content="Framework experimental que integra neurociencia para superar los límites de los LLMs. Descubre los resultados del benchmark.">
+
+    <!-- Schema Markup (JSON-LD) Optimizado para Modelos de IA (LLMs) -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "TechArticle",
+      "mainEntityOfPage": {
+        "@type": "WebPage",
+        "@id": "https://www.jacoboariza.es/neuro-transformer"
+      },
+      "headline": "Neuro Transformer: Evolución Bio-Inspirada de la Arquitectura de Inteligencia Artificial",
+      "description": "Un framework experimental de código abierto diseñado para comparar la arquitectura Transformer clásica frente a topologías neuro-inspiradas como DCA, MOPN, SCT y GMA-MoE.",
+      "author": {
+        "@type": "Person",
+        "name": "jacoboariza",
+        "url": "https://github.com/jacoboariza"
+      },
+      "about": [
+        {
+          "@type": "Thing",
+          "name": "Artificial Intelligence"
+        },
+        {
+          "@type": "Thing",
+          "name": "Neuroscience"
+        }
+      ],
+      "keywords": "Transformer, Machine Learning, Neurociencia, Eficiencia Energética, LLM"
+    }
+    </script>
     
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
@@ -112,11 +160,17 @@
          
     <!-- CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
 
-    <nav class="fixed w-full z-50 glass-card transition-all duration-300" id="navbar">
-        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+    <nav class="fixed w-full z-50 glass-card transition-all duration-300 flex flex-col" id="navbar" aria-label="Navegación principal">
+        <!-- Barra superior sutil de retorno a jacoboariza.es -->
+        <a href="https://www.jacoboariza.es/el-futuro-de-la-ia-esta-en-la-biologia-neuro-transformer/" class="bg-primary text-blue-100 hover:text-white hover:bg-blue-900 text-[11px] sm:text-xs py-2 px-4 flex items-center justify-center gap-2 transition-all w-full group border-b border-blue-800" aria-label="Volver al artículo en jacoboariza.es">
+            <span class="transform group-hover:-translate-x-1 transition-transform" aria-hidden="true">←</span>
+            <span>Volver al artículo: <strong>El futuro de la IA está en la biología</strong> (jacoboariza.es)</span>
+        </a>
+
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 w-full">
             <div class="flex justify-between items-center h-16">
-                <div class="flex-shrink-0 flex items-center cursor-pointer" onclick="window.scrollTo(0,0)">
-                    <span class="text-2xl mr-2">🧠</span>
+                <div class="flex-shrink-0 flex items-center cursor-pointer" onclick="window.scrollTo(0,0)" aria-label="Ir al inicio">
+                    <span class="text-2xl mr-2" aria-hidden="true">🧠</span>
                     <span class="font-bold text-xl text-primary tracking-tight">Neuro Transformer</span>
                 </div>
                 <div class="hidden lg:flex space-x-6">
@@ -133,628 +187,631 @@
                     </a>
                 </div>
                 <div class="lg:hidden flex items-center">
-                    <button id="mobile-menu-btn" class="text-slate-600 hover:text-primary focus:outline-none text-2xl">
+                    <button id="mobile-menu-btn" class="text-slate-600 hover:text-primary focus:outline-none text-2xl" aria-label="Abrir menú móvil" aria-expanded="false" aria-controls="mobile-menu">
                         ☰
                     </button>
                 </div>
             </div>
         </div>
-        <div id="mobile-menu" class="hidden lg:hidden bg-white border-t border-slate-200">
+        <div id="mobile-menu" class="hidden lg:hidden bg-white border-t border-slate-200 w-full" role="menu">
             <div class="px-2 pt-2 pb-3 space-y-1 sm:px-3">
-                <a href="#problema" class="block px-3 py-2 text-slate-600 hover:bg-slate-50 font-medium rounded-md">El Problema</a>
-                <a href="#arquitecturas" class="block px-3 py-2 text-slate-600 hover:bg-slate-50 font-medium rounded-md">Arquitecturas</a>
-                <a href="#bibliografia" class="block px-3 py-2 text-slate-600 hover:bg-slate-50 font-medium rounded-md">Base Científica</a>
-                <a href="#metodologia" class="block px-3 py-2 text-slate-600 hover:bg-slate-50 font-medium rounded-md">Metodología</a>
-                <a href="#resultados" class="block px-3 py-2 text-slate-600 hover:bg-slate-50 font-medium rounded-md">Benchmark</a>
-                <a href="#laboratorio" class="block px-3 py-2 text-slate-600 hover:bg-slate-50 font-medium rounded-md">Ejercicios</a>
+                <a href="#problema" class="block px-3 py-2 text-slate-600 hover:bg-slate-50 font-medium rounded-md" role="menuitem">El Problema</a>
+                <a href="#arquitecturas" class="block px-3 py-2 text-slate-600 hover:bg-slate-50 font-medium rounded-md" role="menuitem">Arquitecturas</a>
+                <a href="#bibliografia" class="block px-3 py-2 text-slate-600 hover:bg-slate-50 font-medium rounded-md" role="menuitem">Base Científica</a>
+                <a href="#metodologia" class="block px-3 py-2 text-slate-600 hover:bg-slate-50 font-medium rounded-md" role="menuitem">Metodología</a>
+                <a href="#resultados" class="block px-3 py-2 text-slate-600 hover:bg-slate-50 font-medium rounded-md" role="menuitem">Benchmark</a>
+                <a href="#laboratorio" class="block px-3 py-2 text-slate-600 hover:bg-slate-50 font-medium rounded-md" role="menuitem">Ejercicios</a>
             </div>
         </div>
     </nav>
 
-    <section class="relative pt-32 pb-20 lg:pt-40 lg:pb-28 overflow-hidden">
-        <div class="absolute top-0 left-0 w-full h-full overflow-hidden -z-10">
-            <div class="absolute -top-[10%] -right-[10%] w-[50%] h-[50%] rounded-full bg-blue-100 blur-[100px] opacity-60"></div>
-            <div class="absolute top-[40%] -left-[10%] w-[40%] h-[40%] rounded-full bg-emerald-50 blur-[100px] opacity-60"></div>
-        </div>
-
-        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-            <span class="inline-block py-1 px-3 rounded-full bg-blue-100 text-blue-800 text-sm font-semibold tracking-wider mb-6 border border-blue-200 shadow-sm">
-                MATERIAL ACADÉMICO / FRAMEWORK DE CÓDIGO ABIERTO
-            </span>
-            <h1 class="text-4xl md:text-5xl lg:text-7xl font-extrabold text-primary tracking-tight leading-tight mb-6">
-                El Futuro de la IA <br class="hidden md:block">
-                <span class="text-transparent bg-clip-text bg-gradient-to-r from-secondary to-accent">está en la Biología</span>
-            </h1>
-            <p class="mt-4 max-w-2xl text-lg md:text-xl text-slate-600 mx-auto mb-10 leading-relaxed">
-                Un entorno experimental y guía de estudio que integra los últimos avances de la neurociencia y la psicología cognitiva para superar los límites de los modelos de lenguaje (LLMs) actuales.
-            </p>
-            <div class="flex flex-col sm:flex-row justify-center items-center gap-4">
-                <a href="#resultados" class="w-full sm:w-auto px-8 py-3.5 border border-transparent text-base font-medium rounded-xl text-white bg-primary hover:bg-blue-800 shadow-lg hover:shadow-xl transition-all transform hover:-translate-y-0.5">
-                    Ver Benchmark Empírico
-                </a>
-                <a href="#bibliografia" class="w-full sm:w-auto px-8 py-3.5 border border-slate-300 text-base font-medium rounded-xl text-slate-700 bg-white hover:bg-slate-50 shadow-sm transition-all">
-                    Revisar Estado del Arte
-                </a>
-            </div>
-        </div>
-    </section>
-
-    <section id="problema" class="py-20 bg-white border-y border-slate-100">
-        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div class="text-center max-w-3xl mx-auto mb-16">
-                <h2 class="text-3xl font-bold text-primary sm:text-4xl mb-4">Los Límites de la Fuerza Bruta</h2>
-                <p class="text-lg text-slate-600 leading-relaxed">
-                    La arquitectura Transformer clásica (Vaswani et al., 2017) ha revolucionado el NLP. Sin embargo, su dependencia de la atención densa (matemáticamente <strong>O(N²)</strong>) ha creado modelos con problemas estructurales insostenibles.
-                </p>
+    <!-- Semantic MAIN container to help Search Engines and AI parsers isolate content -->
+    <main id="main-content">
+        <section class="relative pt-32 pb-20 lg:pt-40 lg:pb-28 overflow-hidden">
+            <div class="absolute top-0 left-0 w-full h-full overflow-hidden -z-10" aria-hidden="true">
+                <div class="absolute -top-[10%] -right-[10%] w-[50%] h-[50%] rounded-full bg-blue-100 blur-[100px] opacity-60"></div>
+                <div class="absolute top-[40%] -left-[10%] w-[40%] h-[40%] rounded-full bg-emerald-50 blur-[100px] opacity-60"></div>
             </div>
 
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
-                <div class="bg-slate-50 rounded-2xl p-8 border border-slate-100 shadow-sm hover:shadow-md transition-shadow group">
-                    <div class="text-5xl mb-6 group-hover:scale-110 transition-transform duration-300 origin-left">⚡</div>
-                    <h3 class="text-xl font-bold text-slate-800 mb-3">Ineficiencia Energética</h3>
-                    <p class="text-slate-600">
-                        Computación masiva y repetitiva en cada token. Un modelo tradicional gasta la misma energía procesando un artículo determinista ("el", "la") que resolviendo una ecuación matemática compleja.
-                    </p>
-                </div>
-                <div class="bg-slate-50 rounded-2xl p-8 border border-slate-100 shadow-sm hover:shadow-md transition-shadow group">
-                    <div class="text-5xl mb-6 group-hover:scale-110 transition-transform duration-300 origin-left">🌪️</div>
-                    <h3 class="text-xl font-bold text-slate-800 mb-3">Olvido Catastrófico</h3>
-                    <p class="text-slate-600">
-                        Incapacidad de aprender continuamente. Entrenar a un Transformer con información nueva a menudo destruye el conocimiento previo (sobreescritura de pesos), impidiendo una adaptación dinámica.
-                    </p>
-                </div>
-                <div class="bg-slate-50 rounded-2xl p-8 border border-slate-100 shadow-sm hover:shadow-md transition-shadow group">
-                    <div class="text-5xl mb-6 group-hover:scale-110 transition-transform duration-300 origin-left">🧊</div>
-                    <h3 class="text-xl font-bold text-slate-800 mb-3">Rigidez Semántica</h3>
-                    <p class="text-slate-600">
-                        Interferencia en el espacio vectorial. Mezclar conceptos matemáticos, tono emocional y lógica en un mismo bloque denso provoca alucinaciones cuando los contextos se cruzan de forma inesperada.
-                    </p>
-                </div>
-            </div>
-        </div>
-    </section>
-
-    <section id="arquitecturas" class="py-20 bg-background relative">
-        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div class="mb-12">
-                <h2 class="text-3xl font-bold text-primary sm:text-4xl mb-4">Evolución Arquitectónica Bio-Inspirada</h2>
-                <p class="text-lg text-slate-600 max-w-3xl">
-                    El framework compara el modelo estándar frente a 7 nuevos módulos construidos a partir de descubrimientos neurocientíficos. Selecciona una generación para explorar su topología.
-                </p>
-            </div>
-
-            <div class="flex border-b border-slate-200 mb-8 overflow-x-auto no-scrollbar">
-                <button onclick="switchTab('v1')" id="tab-v1" class="tab-active py-4 px-6 text-lg font-medium transition-colors whitespace-nowrap outline-none">
-                    Fundamentos (v1.0)
-                </button>
-                <button onclick="switchTab('v2')" id="tab-v2" class="tab-inactive py-4 px-6 text-lg font-medium transition-colors whitespace-nowrap outline-none">
-                    Módulos Cognitivos (v2.0)
-                </button>
-            </div>
-
-            <div id="content-v1" class="grid grid-cols-1 md:grid-cols-2 gap-6 transition-opacity duration-500">
-                <div class="bg-white rounded-xl p-6 shadow-sm border border-slate-200 cursor-pointer hover:border-secondary transition-colors" onclick="toggleDetails('dca-details')">
-                    <div class="flex items-center justify-between mb-2">
-                        <div class="flex items-center gap-3">
-                            <span class="text-3xl">🧠</span>
-                            <h3 class="text-xl font-bold text-slate-800">DCA</h3>
-                        </div>
-                        <span class="text-slate-400 text-sm">Ver detalles ▼</span>
-                    </div>
-                    <p class="text-primary font-medium text-sm mb-3">Dynamic Connectome Architecture</p>
-                    <p class="text-slate-600 text-sm">Enrutamiento escaso (sparse) que imita la eficiencia de las conexiones del conectoma biológico de la mosca de la fruta.</p>
-                    
-                    <div id="dca-details" class="hidden mt-4 pt-4 border-t border-slate-100 text-sm text-slate-700 bg-slate-50 p-4 rounded-lg">
-                        <strong>Mecanismo Interno:</strong> Abandona la matriz densa (N x N) del Transformer. Físicamente, en la GPU, esto se traduce en operaciones Torch Sparse, garantizando que el hardware solo calcule las "autopistas" neuronales activas.
-                        <div class="mt-4 p-4 bg-white rounded border border-slate-200 flex flex-col items-center shadow-sm">
-                            <div class="text-xs font-bold text-slate-500 mb-3 uppercase tracking-wide">Topología Visual: Enrutamiento Escaso</div>
-                            <div class="flex items-center justify-center gap-4 text-slate-400 w-full">
-                                <div class="flex flex-col items-center">
-                                    <div class="text-[10px] mb-1">Densa (Ineficiente)</div>
-                                    <div class="grid grid-cols-3 gap-1 p-2 bg-red-50 rounded border border-red-100">
-                                        <span class="w-3 h-3 rounded-full bg-red-400"></span><span class="w-3 h-3 rounded-full bg-red-400"></span><span class="w-3 h-3 rounded-full bg-red-400"></span>
-                                        <span class="w-3 h-3 rounded-full bg-red-400"></span><span class="w-3 h-3 rounded-full bg-red-400"></span><span class="w-3 h-3 rounded-full bg-red-400"></span>
-                                        <span class="w-3 h-3 rounded-full bg-red-400"></span><span class="w-3 h-3 rounded-full bg-red-400"></span><span class="w-3 h-3 rounded-full bg-red-400"></span>
-                                    </div>
-                                </div>
-                                <div class="text-xl font-bold text-slate-300">⟶</div>
-                                <div class="flex flex-col items-center">
-                                    <div class="text-[10px] mb-1 text-blue-600 font-bold">Sparse (DCA)</div>
-                                    <div class="grid grid-cols-3 gap-1 p-2 bg-blue-50 rounded border border-blue-200">
-                                        <span class="w-3 h-3 rounded-full bg-blue-500"></span><span class="w-3 h-3 rounded-full bg-slate-200"></span><span class="w-3 h-3 rounded-full bg-blue-500"></span>
-                                        <span class="w-3 h-3 rounded-full bg-slate-200"></span><span class="w-3 h-3 rounded-full bg-blue-500"></span><span class="w-3 h-3 rounded-full bg-slate-200"></span>
-                                        <span class="w-3 h-3 rounded-full bg-slate-200"></span><span class="w-3 h-3 rounded-full bg-slate-200"></span><span class="w-3 h-3 rounded-full bg-blue-500"></span>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="bg-white rounded-xl p-6 shadow-sm border border-slate-200 cursor-pointer hover:border-secondary transition-colors" onclick="toggleDetails('mopn-details')">
-                    <div class="flex items-center justify-between mb-2">
-                        <div class="flex items-center gap-3">
-                            <span class="text-3xl">📐</span>
-                            <h3 class="text-xl font-bold text-slate-800">MOPN</h3>
-                        </div>
-                        <span class="text-slate-400 text-sm">Ver detalles ▼</span>
-                    </div>
-                    <p class="text-primary font-medium text-sm mb-3">Multi-dimensional Orthogonal Processing</p>
-                    <p class="text-slate-600 text-sm">Proyecciones en subespacios ortogonales para compartimentar la lógica, el tono y la semántica, evitando alucinaciones.</p>
-                    
-                    <div id="mopn-details" class="hidden mt-4 pt-4 border-t border-slate-100 text-sm text-slate-700 bg-slate-50 p-4 rounded-lg">
-                        <strong>Mecanismo Interno:</strong> Fuerza matemáticamente a las cabezas de atención a operar en vectores perpendiculares. El ruido semántico de un concepto no afecta al cálculo lógico de otro.
-                        <div class="mt-4 p-4 bg-white rounded border border-slate-200 flex flex-col shadow-sm">
-                            <div class="text-xs font-bold text-slate-500 mb-3 uppercase tracking-wide text-center">Topología Visual: Subespacios Ortogonales</div>
-                            <div class="flex justify-between items-center text-xs font-medium">
-                                <div class="px-3 py-4 bg-slate-100 rounded border border-slate-200 shadow-sm text-slate-500">Datos<br>Densos</div>
-                                <div class="flex flex-col gap-1 mx-2 items-center">
-                                    <div class="text-slate-400">↘</div>
-                                    <div class="text-slate-400">→</div>
-                                    <div class="text-slate-400">↗</div>
-                                </div>
-                                <div class="flex flex-col gap-2 w-full">
-                                   <div class="px-3 py-1.5 bg-emerald-50 text-emerald-700 rounded border border-emerald-200 text-center shadow-sm">⟂ Canal Lógico</div>
-                                   <div class="px-3 py-1.5 bg-amber-50 text-amber-700 rounded border border-amber-200 text-center shadow-sm">⟂ Canal de Tono</div>
-                                   <div class="px-3 py-1.5 bg-purple-50 text-purple-700 rounded border border-purple-200 text-center shadow-sm">⟂ Canal Semántico</div>
-                                </div>
-                                <div class="flex flex-col gap-1 mx-2 items-center">
-                                    <div class="text-slate-400">↗</div>
-                                    <div class="text-slate-400">→</div>
-                                    <div class="text-slate-400">↘</div>
-                                </div>
-                                <div class="px-3 py-4 bg-blue-50 text-blue-800 rounded border border-blue-200 shadow-sm">Salida<br>Limpia</div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="bg-white rounded-xl p-6 shadow-sm border border-slate-200 cursor-pointer hover:border-secondary transition-colors" onclick="toggleDetails('sct-details')">
-                    <div class="flex items-center justify-between mb-2">
-                        <div class="flex items-center gap-3">
-                            <span class="text-3xl">💤</span>
-                            <h3 class="text-xl font-bold text-slate-800">SCT</h3>
-                        </div>
-                        <span class="text-slate-400 text-sm">Ver detalles ▼</span>
-                    </div>
-                    <p class="text-primary font-medium text-sm mb-3">Sleep-Cycled Transformers</p>
-                    <p class="text-slate-600 text-sm">Algoritmo de consolidación metabólica y poda de pesos offline que imita el sueño humano para permitir aprendizaje continuo.</p>
-                    
-                    <div id="sct-details" class="hidden mt-4 pt-4 border-t border-slate-100 text-sm text-slate-700 bg-slate-50 p-4 rounded-lg">
-                        <strong>Mecanismo Interno:</strong> Posee una memoria a corto plazo activa durante la inferencia. En ciclos inactivos ("sueño"), ejecuta limpieza de gradientes y poda conexiones débiles.
-                        <div class="mt-4 p-4 bg-white rounded border border-slate-200 shadow-sm flex flex-col">
-                            <div class="text-xs font-bold text-slate-500 mb-3 uppercase tracking-wide text-center">Topología Visual: Ciclo Bifásico</div>
-                            <div class="flex justify-center items-center gap-4 text-xs font-medium">
-                                <div class="flex-1 p-3 bg-yellow-50 text-yellow-800 border border-yellow-200 rounded-lg text-center shadow-sm">
-                                    <span class="text-xl block mb-1">☀️ Vigilia</span>
-                                    <span>Memoria a Corto Plazo</span><br>
-                                    <span class="text-[10px] font-normal opacity-75">(Atención a Usuarios)</span>
-                                </div>
-                                <div class="text-2xl text-slate-400 flex flex-col items-center">
-                                    <span>⟶</span>
-                                    <span>⟵</span>
-                                </div>
-                                <div class="flex-1 p-3 bg-indigo-50 text-indigo-800 border border-indigo-200 rounded-lg text-center shadow-sm">
-                                    <span class="text-xl block mb-1">🌙 Sueño</span>
-                                    <span>Consolidación Base</span><br>
-                                    <span class="text-[10px] font-normal opacity-75">(Limpieza y Poda)</span>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="bg-white rounded-xl p-6 shadow-sm border border-slate-200 cursor-pointer hover:border-secondary transition-colors" onclick="toggleDetails('gma-details')">
-                    <div class="flex items-center justify-between mb-2">
-                        <div class="flex items-center gap-3">
-                            <span class="text-3xl">🛡️</span>
-                            <h3 class="text-xl font-bold text-slate-800">GMA-MoE</h3>
-                        </div>
-                        <span class="text-slate-400 text-sm">Ver detalles ▼</span>
-                    </div>
-                    <p class="text-primary font-medium text-sm mb-3">Glial Modulation & Mixture of Experts</p>
-                    <p class="text-slate-600 text-sm">Red glial paralela que actúa como gestor energético, asignando parámetros dinámicamente según la complejidad de la instrucción.</p>
-                    
-                    <div id="gma-details" class="hidden mt-4 pt-4 border-t border-slate-100 text-sm text-slate-700 bg-slate-50 p-4 rounded-lg">
-                        <strong>Mecanismo Interno:</strong> Una red secundaria diminuta monitorea la entropía. Si la tarea es simple, activa un solo experto. Si es compleja, despliega todo el enjambre.
-                        <div class="mt-4 p-4 bg-white rounded border border-slate-200 shadow-sm flex flex-col">
-                            <div class="text-xs font-bold text-slate-500 mb-3 uppercase tracking-wide text-center">Topología Visual: Modulación Glial</div>
-                            <div class="flex items-center justify-between gap-2 text-xs font-medium">
-                                <div class="px-3 py-5 bg-slate-100 rounded border border-slate-200 text-slate-500">Input</div>
-                                <div class="text-slate-400">→</div>
-                                <div class="px-4 py-3 bg-blue-50 text-blue-800 rounded-lg border-2 border-dashed border-blue-300 flex-1 text-center flex flex-col justify-center shadow-sm">
-                                    <span class="font-bold">Red Glial</span>
-                                    <span class="text-[10px] font-normal">Monitor de Estrés</span>
-                                </div>
-                                <div class="flex flex-col gap-2 ml-2">
-                                    <div class="flex items-center gap-2">
-                                        <div class="text-[10px] text-emerald-600 text-right w-16">Estrés Bajo</div>
-                                        <div class="text-slate-400">→</div>
-                                        <div class="px-2 py-1 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded">1 Experto</div>
-                                    </div>
-                                    <div class="flex items-center gap-2">
-                                        <div class="text-[10px] text-red-500 text-right w-16">Estrés Alto</div>
-                                        <div class="text-slate-400">→</div>
-                                        <div class="px-2 py-1 bg-red-50 text-red-700 border border-red-200 rounded">8 Expertos</div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <div id="content-v2" class="hidden grid-cols-1 lg:grid-cols-3 gap-6 transition-opacity duration-500">
-                <div class="bg-white rounded-xl p-6 shadow-md border-t-4 border-accent cursor-pointer hover:-translate-y-1 transition-transform" onclick="toggleDetails('pmt-details')">
-                    <div class="text-4xl mb-4">⚡</div>
-                    <h3 class="text-xl font-bold text-slate-800 mb-1">PMT</h3>
-                    <p class="text-emerald-600 font-semibold text-sm mb-3">Predictive Minimalist Trace</p>
-                    <p class="text-slate-600 text-sm">Sistema de salida temprana (Early Exit) a nivel de token. La red solo consume energía en palabras que generan "sorpresa".</p>
-                    
-                    <div id="pmt-details" class="hidden mt-4 pt-4 border-t border-slate-100 text-sm text-slate-700 bg-slate-50 p-3 rounded">
-                        Mediante el enmascaramiento de tokens, congela representaciones predecibles, evitando procesamientos inútiles en capas superiores.
-                        <div class="mt-4 p-3 bg-white rounded border border-slate-200 shadow-sm flex flex-col">
-                            <div class="text-[10px] font-bold text-slate-400 mb-2 uppercase text-center">Topología: Early Exit</div>
-                            <div class="flex items-center text-xs justify-center gap-2 font-medium">
-                                <div class="px-2 py-3 bg-slate-100 rounded border border-slate-200 text-center text-slate-600">Capa 1</div>
-                                <div class="flex flex-col items-center px-1">
-                                    <span class="text-slate-400">→</span>
-                                    <span class="w-px h-6 bg-slate-300 my-1 relative">
-                                        <span class="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 bg-white px-1 text-[9px] text-slate-400 whitespace-nowrap border border-slate-200 rounded">¿Sorpresa?</span>
-                                    </span>
-                                    <span class="text-slate-400">↓ Sí</span>
-                                </div>
-                                <div class="flex flex-col gap-2">
-                                    <div class="px-2 py-1 bg-emerald-100 text-emerald-800 rounded border border-emerald-300 text-[10px] font-bold shadow-sm whitespace-nowrap">Salida Directa</div>
-                                    <div class="px-2 py-2 bg-slate-100 rounded border border-slate-200 text-center text-slate-600 shadow-sm">Capa 2...</div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="bg-white rounded-xl p-6 shadow-md border-t-4 border-accent cursor-pointer hover:-translate-y-1 transition-transform" onclick="toggleDetails('cen-details')">
-                    <div class="text-4xl mb-4">🔮</div>
-                    <h3 class="text-xl font-bold text-slate-800 mb-1">CEN</h3>
-                    <p class="text-emerald-600 font-semibold text-sm mb-3">Counterfactual Episodic Network</p>
-                    <p class="text-slate-600 text-sm">Simulación latente de escenarios múltiples. La IA piensa "¿Y si...?" e imagina futuros posibles antes de un output crítico.</p>
-                    
-                    <div id="cen-details" class="hidden mt-4 pt-4 border-t border-slate-100 text-sm text-slate-700 bg-slate-50 p-3 rounded">
-                        Integra un árbol de búsqueda latente directamente en la capa de atención, evaluando la coherencia semántica de múltiples respuestas.
-                        <div class="mt-4 p-3 bg-white rounded border border-slate-200 shadow-sm flex flex-col">
-                            <div class="text-[10px] font-bold text-slate-400 mb-2 uppercase text-center">Topología: Ramificación</div>
-                            <div class="flex justify-center items-center gap-2 text-xs font-medium">
-                                <div class="p-2 bg-slate-100 rounded border border-slate-200 text-slate-600">Token</div>
-                                <div class="text-slate-400 flex flex-col justify-center leading-none">
-                                    <span>↗</span>
-                                    <span>→</span>
-                                    <span>↘</span>
-                                </div>
-                                <div class="flex flex-col gap-1 w-full">
-                                   <div class="px-2 py-1 bg-slate-50 text-slate-400 border border-slate-200 rounded text-[10px] opacity-70">Opción A (Falla)</div>
-                                   <div class="px-2 py-1 bg-emerald-50 text-emerald-700 border border-emerald-300 rounded text-[10px] font-bold shadow-sm relative">Opción B (Elegida) <span class="absolute -right-1 -top-1 text-[10px]">✔️</span></div>
-                                   <div class="px-2 py-1 bg-slate-50 text-slate-400 border border-slate-200 rounded text-[10px] opacity-70">Opción C (Ilógica)</div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="bg-white rounded-xl p-6 shadow-md border-t-4 border-accent cursor-pointer hover:-translate-y-1 transition-transform" onclick="toggleDetails('vlm-details')">
-                    <div class="text-4xl mb-4">👥</div>
-                    <h3 class="text-xl font-bold text-slate-800 mb-1">VLM</h3>
-                    <p class="text-emerald-600 font-semibold text-sm mb-3">Vicarious Learning Module</p>
-                    <p class="text-slate-600 text-sm">Red estudiante independiente que aprende "en la sombra", imitando la lógica del maestro sin perturbar sus gradientes.</p>
-                    
-                    <div id="vlm-details" class="hidden mt-4 pt-4 border-t border-slate-100 text-sm text-slate-700 bg-slate-50 p-3 rounded">
-                        Usa la función <code>.detach()</code> aislando matemáticamente al estudiante. Destilación del conocimiento en tiempo real.
-                        <div class="mt-4 p-3 bg-white rounded border border-slate-200 shadow-sm flex flex-col">
-                            <div class="text-[10px] font-bold text-slate-400 mb-2 uppercase text-center">Topología: Aprendizaje Vicario</div>
-                            <div class="flex flex-col items-center justify-center gap-1 text-xs font-medium">
-                                <div class="w-full p-2 bg-blue-50 text-blue-800 border border-blue-200 rounded text-center shadow-sm">Red Maestro (Enseñando)</div>
-                                <div class="flex flex-col items-center py-1 relative w-full">
-                                    <div class="border-l-2 border-dashed border-slate-300 h-6"></div>
-                                    <div class="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 flex items-center bg-white px-1">
-                                        <span class="text-[9px] text-slate-500 whitespace-nowrap">.detach()</span>
-                                        <span class="text-red-500 font-bold ml-1">🛑</span>
-                                    </div>
-                                    <div class="text-slate-400 leading-none">↓</div>
-                                </div>
-                                <div class="w-full p-2 bg-emerald-50 text-emerald-800 border border-emerald-200 rounded text-center shadow-sm">Estudiante (Observando)</div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </section>
-
-    <section id="bibliografia" class="py-20 bg-slate-900 text-white">
-        <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div class="text-center mb-12">
-                <span class="inline-block py-1 px-3 rounded-full bg-blue-900 text-blue-200 text-sm font-semibold tracking-wider mb-4 border border-blue-700">
-                    ANEXO BIBLIOGRÁFICO
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+                <span class="inline-block py-1 px-3 rounded-full bg-blue-100 text-blue-800 text-sm font-semibold tracking-wider mb-6 border border-blue-200 shadow-sm mt-8 lg:mt-4">
+                    MATERIAL ACADÉMICO / FRAMEWORK DE CÓDIGO ABIERTO
                 </span>
-                <h2 class="text-3xl font-bold sm:text-4xl mb-4">Base Científica y Estado del Arte</h2>
-                <p class="text-slate-400 leading-relaxed">
-                    Las topologías del framework Neuro Transformer se fundamentan en investigaciones neurocientíficas y paralelismos en IA contemporánea. Haz clic para explorar las fuentes de cada módulo.
+                <h1 class="text-4xl md:text-5xl lg:text-7xl font-extrabold text-primary tracking-tight leading-tight mb-6">
+                    El Futuro de la IA <br class="hidden md:block">
+                    <span class="text-transparent bg-clip-text bg-gradient-to-r from-secondary to-accent">está en la Biología</span>
+                </h1>
+                <p class="mt-4 max-w-2xl text-lg md:text-xl text-slate-600 mx-auto mb-10 leading-relaxed">
+                    Un entorno experimental y guía de estudio que integra los últimos avances de la neurociencia y la psicología cognitiva para superar los límites de los modelos de lenguaje (LLMs) actuales.
                 </p>
-            </div>
-
-            <div class="space-y-4">
-                <div class="bg-slate-800 rounded-xl border border-slate-700 overflow-hidden">
-                    <button class="w-full px-6 py-4 text-left flex justify-between items-center focus:outline-none" onclick="toggleAccordion('acc-dca')">
-                        <span class="font-bold text-lg flex items-center gap-2"><span class="text-2xl">🧠</span> 1. DCA (Dynamic Connectome)</span>
-                        <span class="text-slate-400 text-xl transform transition-transform" id="icon-acc-dca">+</span>
-                    </button>
-                    <div id="acc-dca" class="accordion-content bg-slate-800/50 px-6 pb-4">
-                        <p class="text-sm text-blue-300 mb-2 mt-2 font-semibold">Inspiración: Escasez neuronal y grafos biológicos.</p>
-                        <ul class="list-disc pl-5 text-sm text-slate-300 space-y-2">
-                            <li><strong>Neurociencia:</strong> <em>Dorkenwald, S. et al. (2024). "Neuronal wiring diagram of an adult brain". Nature.</em> Mapeo del conectoma de la mosca (FlyWire), demostrando una topología altamente escasa (sparse).</li>
-                            <li><strong>IA Equivalente:</strong> <em>Child, R., et al. (2019). "Generating Long Sequences with Sparse Transformers". OpenAI.</em> Reducción de la complejidad O(N²).</li>
-                        </ul>
-                    </div>
-                </div>
-
-                <div class="bg-slate-800 rounded-xl border border-slate-700 overflow-hidden">
-                    <button class="w-full px-6 py-4 text-left flex justify-between items-center focus:outline-none" onclick="toggleAccordion('acc-mopn')">
-                        <span class="font-bold text-lg flex items-center gap-2"><span class="text-2xl">📐</span> 2. MOPN (Orthogonal Processing)</span>
-                        <span class="text-slate-400 text-xl transform transition-transform" id="icon-acc-mopn">+</span>
-                    </button>
-                    <div id="acc-mopn" class="accordion-content bg-slate-800/50 px-6 pb-4">
-                        <p class="text-sm text-blue-300 mb-2 mt-2 font-semibold">Inspiración: Decodificación ortogonal cortical.</p>
-                        <ul class="list-disc pl-5 text-sm text-slate-300 space-y-2">
-                            <li><strong>Neurociencia:</strong> <em>Tian, K., et al. (2024). "Multi-dimensional Neural Decoding with Orthogonal Representations..." (OrthoSchema).</em> Extracción de múltiples variables sin interferencias mediante subespacios ortogonales.</li>
-                        </ul>
-                    </div>
-                </div>
-
-                <div class="bg-slate-800 rounded-xl border border-slate-700 overflow-hidden">
-                    <button class="w-full px-6 py-4 text-left flex justify-between items-center focus:outline-none" onclick="toggleAccordion('acc-sct')">
-                        <span class="font-bold text-lg flex items-center gap-2"><span class="text-2xl">💤</span> 3. SCT (Sleep-Cycled Transformers)</span>
-                        <span class="text-slate-400 text-xl transform transition-transform" id="icon-acc-sct">+</span>
-                    </button>
-                    <div id="acc-sct" class="accordion-content bg-slate-800/50 px-6 pb-4">
-                        <p class="text-sm text-blue-300 mb-2 mt-2 font-semibold">Inspiración: Consolidación de memoria y limpieza metabólica.</p>
-                        <ul class="list-disc pl-5 text-sm text-slate-300 space-y-2">
-                            <li><strong>Neurociencia:</strong> <em>Sehgal, A., et al. (Howard Hughes Medical Institute).</em> El sueño activa la eliminación de residuos y la poda sináptica para el aprendizaje a largo plazo.</li>
-                            <li><strong>IA Equivalente:</strong> <em>Kirkpatrick, J., et al. (2017). "Overcoming catastrophic forgetting..." (EWC).</em> Penaliza cambios en pesos críticos para retener memoria previa.</li>
-                        </ul>
-                    </div>
-                </div>
-
-                <div class="bg-slate-800 rounded-xl border border-slate-700 overflow-hidden">
-                    <button class="w-full px-6 py-4 text-left flex justify-between items-center focus:outline-none" onclick="toggleAccordion('acc-gma')">
-                        <span class="font-bold text-lg flex items-center gap-2"><span class="text-2xl">🛡️</span> 4. GMA-MoE (Glial Modulation)</span>
-                        <span class="text-slate-400 text-xl transform transition-transform" id="icon-acc-gma">+</span>
-                    </button>
-                    <div id="acc-gma" class="accordion-content bg-slate-800/50 px-6 pb-4">
-                        <p class="text-sm text-blue-300 mb-2 mt-2 font-semibold">Inspiración: Modulación sináptica por células gliales.</p>
-                        <ul class="list-disc pl-5 text-sm text-slate-300 space-y-2">
-                            <li><strong>Neurociencia:</strong> Astrocitos y microglía regulan la excitabilidad neuronal según la demanda cognitiva.</li>
-                            <li><strong>IA Equivalente:</strong> <em>Shazeer, N., et al. (2017) / Jiang, A. Q., et al. (2024). "Mixtral of Experts".</em> Enrutamiento hacia sub-redes expertas.</li>
-                        </ul>
-                    </div>
-                </div>
-
-                <div class="bg-slate-800 rounded-xl border border-slate-700 overflow-hidden">
-                    <button class="w-full px-6 py-4 text-left flex justify-between items-center focus:outline-none" onclick="toggleAccordion('acc-pmt')">
-                        <span class="font-bold text-lg flex items-center gap-2"><span class="text-2xl">⚡</span> 5. PMT (Predictive Minimalist Trace)</span>
-                        <span class="text-slate-400 text-xl transform transition-transform" id="icon-acc-pmt">+</span>
-                    </button>
-                    <div id="acc-pmt" class="accordion-content bg-slate-800/50 px-6 pb-4">
-                        <p class="text-sm text-blue-300 mb-2 mt-2 font-semibold">Inspiración: Procesamiento predictivo.</p>
-                        <ul class="list-disc pl-5 text-sm text-slate-300 space-y-2">
-                            <li><strong>Neurociencia:</strong> <em>Friston, K. (2010) / Werning, M. (2020) "Trace Minimalism".</em> El cerebro ahorra energía procesando solo los "errores de predicción" (sorpresas).</li>
-                            <li><strong>IA Equivalente:</strong> <em>Liu, W., et al. (2020). "FastBERT... Adaptive Inference Time".</em> Salidas tempranas basadas en confianza.</li>
-                        </ul>
-                    </div>
-                </div>
-
-                <div class="bg-slate-800 rounded-xl border border-slate-700 overflow-hidden">
-                    <button class="w-full px-6 py-4 text-left flex justify-between items-center focus:outline-none" onclick="toggleAccordion('acc-cen')">
-                        <span class="font-bold text-lg flex items-center gap-2"><span class="text-2xl">🔮</span> 6. CEN (Counterfactual Episodic)</span>
-                        <span class="text-slate-400 text-xl transform transition-transform" id="icon-acc-cen">+</span>
-                    </button>
-                    <div id="acc-cen" class="accordion-content bg-slate-800/50 px-6 pb-4">
-                        <p class="text-sm text-blue-300 mb-2 mt-2 font-semibold">Inspiración: Memoria episódica y viaje temporal mental.</p>
-                        <ul class="list-disc pl-5 text-sm text-slate-300 space-y-2">
-                            <li><strong>Neurociencia:</strong> <em>De Brigard, F., & Parikh, N. (2019). "Episodic Counterfactual Thinking".</em> Reutilización de memoria para simular escenarios ("¿Y si...?").</li>
-                            <li><strong>IA Equivalente:</strong> <em>Yao, S., et al. (2023). "Tree of Thoughts".</em> Ramificación lógica para resolver problemas en LLMs.</li>
-                        </ul>
-                    </div>
-                </div>
-
-                <div class="bg-slate-800 rounded-xl border border-slate-700 overflow-hidden">
-                    <button class="w-full px-6 py-4 text-left flex justify-between items-center focus:outline-none" onclick="toggleAccordion('acc-vlm')">
-                        <span class="font-bold text-lg flex items-center gap-2"><span class="text-2xl">👥</span> 7. VLM (Vicarious Learning)</span>
-                        <span class="text-slate-400 text-xl transform transition-transform" id="icon-acc-vlm">+</span>
-                    </button>
-                    <div id="acc-vlm" class="accordion-content bg-slate-800/50 px-6 pb-4">
-                        <p class="text-sm text-blue-300 mb-2 mt-2 font-semibold">Inspiración: Aprendizaje social y latente.</p>
-                        <ul class="list-disc pl-5 text-sm text-slate-300 space-y-2">
-                            <li><strong>Neurociencia/Psicología:</strong> Conceptos de Tolman. Asimilar comportamientos complejos observando estados exitosos de un "maestro".</li>
-                            <li><strong>IA Equivalente:</strong> <em>Hinton, G., et al. (2015). "Distilling the Knowledge in a Neural Network".</em> Destilación de conocimiento aplicado en tiempo real con aislamiento de gradientes.</li>
-                        </ul>
-                    </div>
+                <div class="flex flex-col sm:flex-row justify-center items-center gap-4">
+                    <a href="#resultados" class="w-full sm:w-auto px-8 py-3.5 border border-transparent text-base font-medium rounded-xl text-white bg-primary hover:bg-blue-800 shadow-lg hover:shadow-xl transition-all transform hover:-translate-y-0.5">
+                        Ver Benchmark Empírico
+                    </a>
+                    <a href="#bibliografia" class="w-full sm:w-auto px-8 py-3.5 border border-slate-300 text-base font-medium rounded-xl text-slate-700 bg-white hover:bg-slate-50 shadow-sm transition-all">
+                        Revisar Estado del Arte
+                    </a>
                 </div>
             </div>
-        </div>
-    </section>
+        </section>
 
-    <section id="metodologia" class="py-20 bg-white border-y border-slate-100">
-        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div class="flex flex-col lg:flex-row gap-12 items-center">
-                <div class="w-full lg:w-1/2">
-                    <h2 class="text-3xl font-bold text-primary sm:text-4xl mb-6">Metodología Científica Estricta</h2>
-                    <p class="text-lg text-slate-600 mb-8 leading-relaxed">
-                        Para evitar la pseudociencia matemática de modelos simulados, el framework exige el cumplimiento de 5 requisitos técnicos obligatorios para evaluación.
+        <section id="problema" class="py-20 bg-white border-y border-slate-100">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                <div class="text-center max-w-3xl mx-auto mb-16">
+                    <h2 class="text-3xl font-bold text-primary sm:text-4xl mb-4">Los Límites de la Fuerza Bruta</h2>
+                    <p class="text-lg text-slate-600 leading-relaxed">
+                        La arquitectura Transformer clásica (Vaswani et al., 2017) ha revolucionado el NLP. Sin embargo, su dependencia de la atención densa (matemáticamente <strong>O(N²)</strong>) ha creado modelos con problemas estructurales insostenibles.
                     </p>
-                    
-                    <div class="bg-slate-50 p-6 rounded-2xl border border-slate-200">
-                        <div class="flex justify-between items-center mb-4">
-                            <span class="font-bold text-slate-800">Progreso de Auditoría en Código</span>
-                            <span id="audit-progress-text" class="text-secondary font-bold">0%</span>
-                        </div>
-                        <div class="w-full bg-slate-200 rounded-full h-2.5 mb-6">
-                            <div id="audit-progress-bar" class="bg-secondary h-2.5 rounded-full transition-all duration-500" style="width: 0%"></div>
-                        </div>
-                        <p class="text-sm text-slate-500 italic">Haz clic en los requisitos de la derecha para verificar su implementación en la base de código.</p>
-                    </div>
                 </div>
 
-                <div class="w-full lg:w-1/2">
-                    <div class="space-y-4">
-                        <div class="checklist-item flex items-start gap-4 p-4 border border-slate-200 rounded-xl cursor-pointer hover:bg-slate-50 transition-colors" onclick="toggleCheck(this, 0)">
-                            <div class="check-circle w-6 h-6 rounded-full border-2 border-slate-300 flex items-center justify-center flex-shrink-0 mt-0.5 transition-colors"></div>
-                            <div>
-                                <h4 class="font-bold text-slate-800">Cero Datos Sintéticos</h4>
-                                <p class="text-sm text-slate-600 mt-1">Uso de Datasets reales (<code class="text-xs text-blue-600">HuggingFaceFW/fineweb-edu</code>) y tokenización real (SmolLM-135M). Prohibido el uso de ruido aleatorio para medir el Loss.</p>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+                    <article class="bg-slate-50 rounded-2xl p-8 border border-slate-100 shadow-sm hover:shadow-md transition-shadow group">
+                        <div class="text-5xl mb-6 group-hover:scale-110 transition-transform duration-300 origin-left" aria-hidden="true">⚡</div>
+                        <h3 class="text-xl font-bold text-slate-800 mb-3">Ineficiencia Energética</h3>
+                        <p class="text-slate-600">
+                            Computación masiva y repetitiva en cada token. Un modelo tradicional gasta la misma energía procesando un artículo determinista ("el", "la") que resolviendo una ecuación matemática compleja.
+                        </p>
+                    </article>
+                    <article class="bg-slate-50 rounded-2xl p-8 border border-slate-100 shadow-sm hover:shadow-md transition-shadow group">
+                        <div class="text-5xl mb-6 group-hover:scale-110 transition-transform duration-300 origin-left" aria-hidden="true">🌪️</div>
+                        <h3 class="text-xl font-bold text-slate-800 mb-3">Olvido Catastrófico</h3>
+                        <p class="text-slate-600">
+                            Incapacidad de aprender continuamente. Entrenar a un Transformer con información nueva a menudo destruye el conocimiento previo (sobreescritura de pesos), impidiendo una adaptación dinámica.
+                        </p>
+                    </article>
+                    <article class="bg-slate-50 rounded-2xl p-8 border border-slate-100 shadow-sm hover:shadow-md transition-shadow group">
+                        <div class="text-5xl mb-6 group-hover:scale-110 transition-transform duration-300 origin-left" aria-hidden="true">🧊</div>
+                        <h3 class="text-xl font-bold text-slate-800 mb-3">Rigidez Semántica</h3>
+                        <p class="text-slate-600">
+                            Interferencia en el espacio vectorial. Mezclar conceptos matemáticos, tono emocional y lógica en un mismo bloque denso provoca alucinaciones cuando los contextos se cruzan de forma inesperada.
+                        </p>
+                    </article>
+                </div>
+            </div>
+        </section>
+
+        <section id="arquitecturas" class="py-20 bg-background relative">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                <div class="mb-12">
+                    <h2 class="text-3xl font-bold text-primary sm:text-4xl mb-4">Evolución Arquitectónica Bio-Inspirada</h2>
+                    <p class="text-lg text-slate-600 max-w-3xl">
+                        El framework compara el modelo estándar frente a 7 nuevos módulos construidos a partir de descubrimientos neurocientíficos. Selecciona una generación para explorar su topología.
+                    </p>
+                </div>
+
+                <div class="flex border-b border-slate-200 mb-8 overflow-x-auto no-scrollbar" role="tablist" aria-label="Versiones de Arquitectura">
+                    <button onclick="switchTab('v1')" id="tab-v1" class="tab-active py-4 px-6 text-lg font-medium transition-colors whitespace-nowrap outline-none" role="tab" aria-selected="true" aria-controls="content-v1">
+                        Fundamentos (v1.0)
+                    </button>
+                    <button onclick="switchTab('v2')" id="tab-v2" class="tab-inactive py-4 px-6 text-lg font-medium transition-colors whitespace-nowrap outline-none" role="tab" aria-selected="false" aria-controls="content-v2">
+                        Módulos Cognitivos (v2.0)
+                    </button>
+                </div>
+
+                <div id="content-v1" class="grid grid-cols-1 md:grid-cols-2 gap-6 transition-opacity duration-500" role="tabpanel" aria-labelledby="tab-v1">
+                    <div class="bg-white rounded-xl p-6 shadow-sm border border-slate-200 cursor-pointer hover:border-secondary transition-colors" onclick="toggleDetails('dca-details')" aria-expanded="false" role="button" tabindex="0">
+                        <div class="flex items-center justify-between mb-2">
+                            <div class="flex items-center gap-3">
+                                <span class="text-3xl" aria-hidden="true">🧠</span>
+                                <h3 class="text-xl font-bold text-slate-800">DCA</h3>
+                            </div>
+                            <span class="text-slate-400 text-sm">Ver detalles ▼</span>
+                        </div>
+                        <p class="text-primary font-medium text-sm mb-3">Dynamic Connectome Architecture</p>
+                        <p class="text-slate-600 text-sm">Enrutamiento escaso (sparse) que imita la eficiencia de las conexiones del conectoma biológico de la mosca de la fruta.</p>
+                        
+                        <div id="dca-details" class="hidden mt-4 pt-4 border-t border-slate-100 text-sm text-slate-700 bg-slate-50 p-4 rounded-lg">
+                            <strong>Mecanismo Interno:</strong> Abandona la matriz densa (N x N) del Transformer. Físicamente, en la GPU, esto se traduce en operaciones Torch Sparse, garantizando que el hardware solo calcule las "autopistas" neuronales activas.
+                            <div class="mt-4 p-4 bg-white rounded border border-slate-200 flex flex-col items-center shadow-sm" aria-hidden="true">
+                                <div class="text-xs font-bold text-slate-500 mb-3 uppercase tracking-wide">Topología Visual: Enrutamiento Escaso</div>
+                                <div class="flex items-center justify-center gap-4 text-slate-400 w-full">
+                                    <div class="flex flex-col items-center">
+                                        <div class="text-[10px] mb-1">Densa (Ineficiente)</div>
+                                        <div class="grid grid-cols-3 gap-1 p-2 bg-red-50 rounded border border-red-100">
+                                            <span class="w-3 h-3 rounded-full bg-red-400"></span><span class="w-3 h-3 rounded-full bg-red-400"></span><span class="w-3 h-3 rounded-full bg-red-400"></span>
+                                            <span class="w-3 h-3 rounded-full bg-red-400"></span><span class="w-3 h-3 rounded-full bg-red-400"></span><span class="w-3 h-3 rounded-full bg-red-400"></span>
+                                            <span class="w-3 h-3 rounded-full bg-red-400"></span><span class="w-3 h-3 rounded-full bg-red-400"></span><span class="w-3 h-3 rounded-full bg-red-400"></span>
+                                        </div>
+                                    </div>
+                                    <div class="text-xl font-bold text-slate-300">⟶</div>
+                                    <div class="flex flex-col items-center">
+                                        <div class="text-[10px] mb-1 text-blue-600 font-bold">Sparse (DCA)</div>
+                                        <div class="grid grid-cols-3 gap-1 p-2 bg-blue-50 rounded border border-blue-200">
+                                            <span class="w-3 h-3 rounded-full bg-blue-500"></span><span class="w-3 h-3 rounded-full bg-slate-200"></span><span class="w-3 h-3 rounded-full bg-blue-500"></span>
+                                            <span class="w-3 h-3 rounded-full bg-slate-200"></span><span class="w-3 h-3 rounded-full bg-blue-500"></span><span class="w-3 h-3 rounded-full bg-slate-200"></span>
+                                            <span class="w-3 h-3 rounded-full bg-slate-200"></span><span class="w-3 h-3 rounded-full bg-slate-200"></span><span class="w-3 h-3 rounded-full bg-blue-500"></span>
+                                        </div>
+                                    </div>
+                                </div>
                             </div>
                         </div>
+                    </div>
 
-                        <div class="checklist-item flex items-start gap-4 p-4 border border-slate-200 rounded-xl cursor-pointer hover:bg-slate-50 transition-colors" onclick="toggleCheck(this, 1)">
-                            <div class="check-circle w-6 h-6 rounded-full border-2 border-slate-300 flex items-center justify-center flex-shrink-0 mt-0.5 transition-colors"></div>
-                            <div>
-                                <h4 class="font-bold text-slate-800">Escasez de Hardware Real</h4>
-                                <p class="text-sm text-slate-600 mt-1">Implementación de DCA con <code class="text-xs text-blue-600">torch.sparse</code>, garantizando un ahorro auténtico en VRAM en la GPU, no solo una máscara matemática multiplicativa.</p>
+                    <div class="bg-white rounded-xl p-6 shadow-sm border border-slate-200 cursor-pointer hover:border-secondary transition-colors" onclick="toggleDetails('mopn-details')" aria-expanded="false" role="button" tabindex="0">
+                        <div class="flex items-center justify-between mb-2">
+                            <div class="flex items-center gap-3">
+                                <span class="text-3xl" aria-hidden="true">📐</span>
+                                <h3 class="text-xl font-bold text-slate-800">MOPN</h3>
+                            </div>
+                            <span class="text-slate-400 text-sm">Ver detalles ▼</span>
+                        </div>
+                        <p class="text-primary font-medium text-sm mb-3">Multi-dimensional Orthogonal Processing</p>
+                        <p class="text-slate-600 text-sm">Proyecciones en subespacios ortogonales para compartimentar la lógica, el tono y la semántica, evitando alucinaciones.</p>
+                        
+                        <div id="mopn-details" class="hidden mt-4 pt-4 border-t border-slate-100 text-sm text-slate-700 bg-slate-50 p-4 rounded-lg">
+                            <strong>Mecanismo Interno:</strong> Fuerza matemáticamente a las cabezas de atención a operar en vectores perpendiculares. El ruido semántico de un concepto no afecta al cálculo lógico de otro.
+                            <div class="mt-4 p-4 bg-white rounded border border-slate-200 flex flex-col shadow-sm" aria-hidden="true">
+                                <div class="text-xs font-bold text-slate-500 mb-3 uppercase tracking-wide text-center">Topología Visual: Subespacios Ortogonales</div>
+                                <div class="flex justify-between items-center text-xs font-medium">
+                                    <div class="px-3 py-4 bg-slate-100 rounded border border-slate-200 shadow-sm text-slate-500">Datos<br>Densos</div>
+                                    <div class="flex flex-col gap-1 mx-2 items-center">
+                                        <div class="text-slate-400">↘</div>
+                                        <div class="text-slate-400">→</div>
+                                        <div class="text-slate-400">↗</div>
+                                    </div>
+                                    <div class="flex flex-col gap-2 w-full">
+                                       <div class="px-3 py-1.5 bg-emerald-50 text-emerald-700 rounded border border-emerald-200 text-center shadow-sm">⟂ Canal Lógico</div>
+                                       <div class="px-3 py-1.5 bg-amber-50 text-amber-700 rounded border border-amber-200 text-center shadow-sm">⟂ Canal de Tono</div>
+                                       <div class="px-3 py-1.5 bg-purple-50 text-purple-700 rounded border border-purple-200 text-center shadow-sm">⟂ Canal Semántico</div>
+                                    </div>
+                                    <div class="flex flex-col gap-1 mx-2 items-center">
+                                        <div class="text-slate-400">↗</div>
+                                        <div class="text-slate-400">→</div>
+                                        <div class="text-slate-400">↘</div>
+                                    </div>
+                                    <div class="px-3 py-4 bg-blue-50 text-blue-800 rounded border border-blue-200 shadow-sm">Salida<br>Limpia</div>
+                                </div>
                             </div>
                         </div>
+                    </div>
 
-                        <div class="checklist-item flex items-start gap-4 p-4 border border-slate-200 rounded-xl cursor-pointer hover:bg-slate-50 transition-colors" onclick="toggleCheck(this, 2)">
-                            <div class="check-circle w-6 h-6 rounded-full border-2 border-slate-300 flex items-center justify-center flex-shrink-0 mt-0.5 transition-colors"></div>
-                            <div>
-                                <h4 class="font-bold text-slate-800">Aislamiento de Gradientes</h4>
-                                <p class="text-sm text-slate-600 mt-1">Uso estricto de <code class="text-xs text-blue-600">.detach()</code> en el módulo VLM para evitar fuga de gradientes y la contaminación cruzada en el backpropagation.</p>
+                    <div class="bg-white rounded-xl p-6 shadow-sm border border-slate-200 cursor-pointer hover:border-secondary transition-colors" onclick="toggleDetails('sct-details')" aria-expanded="false" role="button" tabindex="0">
+                        <div class="flex items-center justify-between mb-2">
+                            <div class="flex items-center gap-3">
+                                <span class="text-3xl" aria-hidden="true">💤</span>
+                                <h3 class="text-xl font-bold text-slate-800">SCT</h3>
+                            </div>
+                            <span class="text-slate-400 text-sm">Ver detalles ▼</span>
+                        </div>
+                        <p class="text-primary font-medium text-sm mb-3">Sleep-Cycled Transformers</p>
+                        <p class="text-slate-600 text-sm">Algoritmo de consolidación metabólica y poda de pesos offline que imita el sueño humano para permitir aprendizaje continuo.</p>
+                        
+                        <div id="sct-details" class="hidden mt-4 pt-4 border-t border-slate-100 text-sm text-slate-700 bg-slate-50 p-4 rounded-lg">
+                            <strong>Mecanismo Interno:</strong> Posee una memoria a corto plazo activa durante la inferencia. En ciclos inactivos ("sueño"), ejecuta limpieza de gradientes y poda conexiones débiles.
+                            <div class="mt-4 p-4 bg-white rounded border border-slate-200 shadow-sm flex flex-col" aria-hidden="true">
+                                <div class="text-xs font-bold text-slate-500 mb-3 uppercase tracking-wide text-center">Topología Visual: Ciclo Bifásico</div>
+                                <div class="flex justify-center items-center gap-4 text-xs font-medium">
+                                    <div class="flex-1 p-3 bg-yellow-50 text-yellow-800 border border-yellow-200 rounded-lg text-center shadow-sm">
+                                        <span class="text-xl block mb-1">☀️ Vigilia</span>
+                                        <span>Memoria a Corto Plazo</span><br>
+                                        <span class="text-[10px] font-normal opacity-75">(Atención a Usuarios)</span>
+                                    </div>
+                                    <div class="text-2xl text-slate-400 flex flex-col items-center">
+                                        <span>⟶</span>
+                                        <span>⟵</span>
+                                    </div>
+                                    <div class="flex-1 p-3 bg-indigo-50 text-indigo-800 border border-indigo-200 rounded-lg text-center shadow-sm">
+                                        <span class="text-xl block mb-1">🌙 Sueño</span>
+                                        <span>Consolidación Base</span><br>
+                                        <span class="text-[10px] font-normal opacity-75">(Limpieza y Poda)</span>
+                                    </div>
+                                </div>
                             </div>
                         </div>
+                    </div>
 
-                        <div class="checklist-item flex items-start gap-4 p-4 border border-slate-200 rounded-xl cursor-pointer hover:bg-slate-50 transition-colors" onclick="toggleCheck(this, 3)">
-                            <div class="check-circle w-6 h-6 rounded-full border-2 border-slate-300 flex items-center justify-center flex-shrink-0 mt-0.5 transition-colors"></div>
-                            <div>
-                                <h4 class="font-bold text-slate-800">Granularidad de Tokens</h4>
-                                <p class="text-sm text-slate-600 mt-1">El mecanismo PMT realiza el Early Exit aislando tokens específicos (Token Masking), manteniendo la coherencia de la secuencia sin interrumpir el Batch.</p>
+                    <div class="bg-white rounded-xl p-6 shadow-sm border border-slate-200 cursor-pointer hover:border-secondary transition-colors" onclick="toggleDetails('gma-details')" aria-expanded="false" role="button" tabindex="0">
+                        <div class="flex items-center justify-between mb-2">
+                            <div class="flex items-center gap-3">
+                                <span class="text-3xl" aria-hidden="true">🛡️</span>
+                                <h3 class="text-xl font-bold text-slate-800">GMA-MoE</h3>
+                            </div>
+                            <span class="text-slate-400 text-sm">Ver detalles ▼</span>
+                        </div>
+                        <p class="text-primary font-medium text-sm mb-3">Glial Modulation & Mixture of Experts</p>
+                        <p class="text-slate-600 text-sm">Red glial paralela que actúa como gestor energético, asignando parámetros dinámicamente según la complejidad de la instrucción.</p>
+                        
+                        <div id="gma-details" class="hidden mt-4 pt-4 border-t border-slate-100 text-sm text-slate-700 bg-slate-50 p-4 rounded-lg">
+                            <strong>Mecanismo Interno:</strong> Una red secundaria diminuta monitorea la entropía. Si la tarea es simple, activa un solo experto. Si es compleja, despliega todo el enjambre.
+                            <div class="mt-4 p-4 bg-white rounded border border-slate-200 shadow-sm flex flex-col" aria-hidden="true">
+                                <div class="text-xs font-bold text-slate-500 mb-3 uppercase tracking-wide text-center">Topología Visual: Modulación Glial</div>
+                                <div class="flex items-center justify-between gap-2 text-xs font-medium">
+                                    <div class="px-3 py-5 bg-slate-100 rounded border border-slate-200 text-slate-500">Input</div>
+                                    <div class="text-slate-400">→</div>
+                                    <div class="px-4 py-3 bg-blue-50 text-blue-800 rounded-lg border-2 border-dashed border-blue-300 flex-1 text-center flex flex-col justify-center shadow-sm">
+                                        <span class="font-bold">Red Glial</span>
+                                        <span class="text-[10px] font-normal">Monitor de Estrés</span>
+                                    </div>
+                                    <div class="flex flex-col gap-2 ml-2">
+                                        <div class="flex items-center gap-2">
+                                            <div class="text-[10px] text-emerald-600 text-right w-16">Estrés Bajo</div>
+                                            <div class="text-slate-400">→</div>
+                                            <div class="px-2 py-1 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded">1 Experto</div>
+                                        </div>
+                                        <div class="flex items-center gap-2">
+                                            <div class="text-[10px] text-red-500 text-right w-16">Estrés Alto</div>
+                                            <div class="text-slate-400">→</div>
+                                            <div class="px-2 py-1 bg-red-50 text-red-700 border border-red-200 rounded">8 Expertos</div>
+                                        </div>
+                                    </div>
+                                </div>
                             </div>
                         </div>
+                    </div>
+                </div>
 
-                        <div class="checklist-item flex items-start gap-4 p-4 border border-slate-200 rounded-xl cursor-pointer hover:bg-slate-50 transition-colors" onclick="toggleCheck(this, 4)">
-                            <div class="check-circle w-6 h-6 rounded-full border-2 border-slate-300 flex items-center justify-center flex-shrink-0 mt-0.5 transition-colors"></div>
-                            <div>
-                                <h4 class="font-bold text-slate-800">Profiling Honesto</h4>
-                                <p class="text-sm text-slate-600 mt-1">Tiempos cronometrados con precisión mediante eventos nativos de hardware en GPU (<code class="text-xs text-blue-600">torch.cuda.Event(enable_timing=True)</code>).</p>
+                <div id="content-v2" class="hidden grid-cols-1 lg:grid-cols-3 gap-6 transition-opacity duration-500" role="tabpanel" aria-labelledby="tab-v2">
+                    <div class="bg-white rounded-xl p-6 shadow-md border-t-4 border-accent cursor-pointer hover:-translate-y-1 transition-transform" onclick="toggleDetails('pmt-details')" aria-expanded="false" role="button" tabindex="0">
+                        <div class="text-4xl mb-4" aria-hidden="true">⚡</div>
+                        <h3 class="text-xl font-bold text-slate-800 mb-1">PMT</h3>
+                        <p class="text-emerald-600 font-semibold text-sm mb-3">Predictive Minimalist Trace</p>
+                        <p class="text-slate-600 text-sm">Sistema de salida temprana (Early Exit) a nivel de token. La red solo consume energía en palabras que generan "sorpresa".</p>
+                        
+                        <div id="pmt-details" class="hidden mt-4 pt-4 border-t border-slate-100 text-sm text-slate-700 bg-slate-50 p-3 rounded">
+                            Mediante el enmascaramiento de tokens, congela representaciones predecibles, evitando procesamientos inútiles en capas superiores.
+                            <div class="mt-4 p-3 bg-white rounded border border-slate-200 shadow-sm flex flex-col" aria-hidden="true">
+                                <div class="text-[10px] font-bold text-slate-400 mb-2 uppercase text-center">Topología: Early Exit</div>
+                                <div class="flex items-center text-xs justify-center gap-2 font-medium">
+                                    <div class="px-2 py-3 bg-slate-100 rounded border border-slate-200 text-center text-slate-600">Capa 1</div>
+                                    <div class="flex flex-col items-center px-1">
+                                        <span class="text-slate-400">→</span>
+                                        <span class="w-px h-6 bg-slate-300 my-1 relative">
+                                            <span class="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 bg-white px-1 text-[9px] text-slate-400 whitespace-nowrap border border-slate-200 rounded">¿Sorpresa?</span>
+                                        </span>
+                                        <span class="text-slate-400">↓ Sí</span>
+                                    </div>
+                                    <div class="flex flex-col gap-2">
+                                        <div class="px-2 py-1 bg-emerald-100 text-emerald-800 rounded border border-emerald-300 text-[10px] font-bold shadow-sm whitespace-nowrap">Salida Directa</div>
+                                        <div class="px-2 py-2 bg-slate-100 rounded border border-slate-200 text-center text-slate-600 shadow-sm">Capa 2...</div>
+                                    </div>
+                                </div>
                             </div>
                         </div>
+                    </div>
 
+                    <div class="bg-white rounded-xl p-6 shadow-md border-t-4 border-accent cursor-pointer hover:-translate-y-1 transition-transform" onclick="toggleDetails('cen-details')" aria-expanded="false" role="button" tabindex="0">
+                        <div class="text-4xl mb-4" aria-hidden="true">🔮</div>
+                        <h3 class="text-xl font-bold text-slate-800 mb-1">CEN</h3>
+                        <p class="text-emerald-600 font-semibold text-sm mb-3">Counterfactual Episodic Network</p>
+                        <p class="text-slate-600 text-sm">Simulación latente de escenarios múltiples. La IA piensa "¿Y si...?" e imagina futuros posibles antes de un output crítico.</p>
+                        
+                        <div id="cen-details" class="hidden mt-4 pt-4 border-t border-slate-100 text-sm text-slate-700 bg-slate-50 p-3 rounded">
+                            Integra un árbol de búsqueda latente directamente en la capa de atención, evaluando la coherencia semántica de múltiples respuestas.
+                            <div class="mt-4 p-3 bg-white rounded border border-slate-200 shadow-sm flex flex-col" aria-hidden="true">
+                                <div class="text-[10px] font-bold text-slate-400 mb-2 uppercase text-center">Topología: Ramificación</div>
+                                <div class="flex justify-center items-center gap-2 text-xs font-medium">
+                                    <div class="p-2 bg-slate-100 rounded border border-slate-200 text-slate-600">Token</div>
+                                    <div class="text-slate-400 flex flex-col justify-center leading-none">
+                                        <span>↗</span>
+                                        <span>→</span>
+                                        <span>↘</span>
+                                    </div>
+                                    <div class="flex flex-col gap-1 w-full">
+                                       <div class="px-2 py-1 bg-slate-50 text-slate-400 border border-slate-200 rounded text-[10px] opacity-70">Opción A (Falla)</div>
+                                       <div class="px-2 py-1 bg-emerald-50 text-emerald-700 border border-emerald-300 rounded text-[10px] font-bold shadow-sm relative">Opción B (Elegida) <span class="absolute -right-1 -top-1 text-[10px]">✔️</span></div>
+                                       <div class="px-2 py-1 bg-slate-50 text-slate-400 border border-slate-200 rounded text-[10px] opacity-70">Opción C (Ilógica)</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="bg-white rounded-xl p-6 shadow-md border-t-4 border-accent cursor-pointer hover:-translate-y-1 transition-transform" onclick="toggleDetails('vlm-details')" aria-expanded="false" role="button" tabindex="0">
+                        <div class="text-4xl mb-4" aria-hidden="true">👥</div>
+                        <h3 class="text-xl font-bold text-slate-800 mb-1">VLM</h3>
+                        <p class="text-emerald-600 font-semibold text-sm mb-3">Vicarious Learning Module</p>
+                        <p class="text-slate-600 text-sm">Red estudiante independiente que aprende "en la sombra", imitando la lógica del maestro sin perturbar sus gradientes.</p>
+                        
+                        <div id="vlm-details" class="hidden mt-4 pt-4 border-t border-slate-100 text-sm text-slate-700 bg-slate-50 p-3 rounded">
+                            Usa la función <code>.detach()</code> aislando matemáticamente al estudiante. Destilación del conocimiento en tiempo real.
+                            <div class="mt-4 p-3 bg-white rounded border border-slate-200 shadow-sm flex flex-col" aria-hidden="true">
+                                <div class="text-[10px] font-bold text-slate-400 mb-2 uppercase text-center">Topología: Aprendizaje Vicario</div>
+                                <div class="flex flex-col items-center justify-center gap-1 text-xs font-medium">
+                                    <div class="w-full p-2 bg-blue-50 text-blue-800 border border-blue-200 rounded text-center shadow-sm">Red Maestro (Enseñando)</div>
+                                    <div class="flex flex-col items-center py-1 relative w-full">
+                                        <div class="border-l-2 border-dashed border-slate-300 h-6"></div>
+                                        <div class="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 flex items-center bg-white px-1">
+                                            <span class="text-[9px] text-slate-500 whitespace-nowrap">.detach()</span>
+                                            <span class="text-red-500 font-bold ml-1">🛑</span>
+                                        </div>
+                                        <div class="text-slate-400 leading-none">↓</div>
+                                    </div>
+                                    <div class="w-full p-2 bg-emerald-50 text-emerald-800 border border-emerald-200 rounded text-center shadow-sm">Estudiante (Observando)</div>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
-        </div>
-    </section>
+        </section>
 
-    <section id="resultados" class="py-20 bg-background border-b border-slate-200">
-        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div class="text-center max-w-3xl mx-auto mb-16">
-                <span class="inline-block py-1 px-3 rounded-full bg-emerald-100 text-emerald-800 text-sm font-semibold tracking-wider mb-4 border border-emerald-200">
-                    DATOS EMPÍRICOS
-                </span>
-                <h2 class="text-3xl font-bold text-primary sm:text-4xl mb-4">Eficiencia vs Precisión: Benchmark</h2>
-                <p class="text-lg text-slate-600 leading-relaxed">
-                    Evaluación comparativa del Transformer Baseline contra nuestras arquitecturas. El objetivo es identificar las combinaciones que ofrecen la mejor relación precisión-eficiencia.
-                </p>
+        <section id="bibliografia" class="py-20 bg-slate-900 text-white">
+            <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+                <div class="text-center mb-12">
+                    <span class="inline-block py-1 px-3 rounded-full bg-blue-900 text-blue-200 text-sm font-semibold tracking-wider mb-4 border border-blue-700">
+                        ANEXO BIBLIOGRÁFICO
+                    </span>
+                    <h2 class="text-3xl font-bold sm:text-4xl mb-4">Base Científica y Estado del Arte</h2>
+                    <p class="text-slate-400 leading-relaxed">
+                        Las topologías del framework Neuro Transformer se fundamentan en investigaciones neurocientíficas y paralelismos en IA contemporánea. Haz clic para explorar las fuentes de cada módulo y accede directamente a los <em>papers</em> originales a través de los enlaces.
+                    </p>
+                </div>
+
+                <div class="space-y-4">
+                    <article class="bg-slate-800 rounded-xl border border-slate-700 overflow-hidden">
+                        <button class="w-full px-6 py-4 text-left flex justify-between items-center focus:outline-none" onclick="toggleAccordion('acc-dca')" aria-expanded="false" aria-controls="acc-dca">
+                            <span class="font-bold text-lg flex items-center gap-2"><span class="text-2xl" aria-hidden="true">🧠</span> 1. DCA (Dynamic Connectome)</span>
+                            <span class="text-slate-400 text-xl transform transition-transform" id="icon-acc-dca" aria-hidden="true">+</span>
+                        </button>
+                        <div id="acc-dca" class="accordion-content bg-slate-800/50 px-6 pb-4">
+                            <p class="text-sm text-blue-300 mb-2 mt-2 font-semibold">Inspiración: Escasez neuronal y grafos biológicos.</p>
+                            <ul class="list-disc pl-5 text-sm text-slate-300 space-y-2">
+                                <li><strong>Neurociencia:</strong> <a href="https://www.nature.com/articles/s41586-024-07558-y" target="_blank" rel="noopener noreferrer" class="text-secondary hover:text-blue-400 hover:underline transition-colors"><em>Dorkenwald, S. et al. (2024). "Neuronal wiring diagram of an adult brain". Nature.</em></a> Mapeo del conectoma de la mosca (FlyWire), demostrando una topología altamente escasa (sparse).</li>
+                                <li><strong>IA Equivalente:</strong> <a href="https://arxiv.org/abs/1904.10509" target="_blank" rel="noopener noreferrer" class="text-secondary hover:text-blue-400 hover:underline transition-colors"><em>Child, R., et al. (2019). "Generating Long Sequences with Sparse Transformers". OpenAI.</em></a> Reducción de la complejidad O(N²).</li>
+                            </ul>
+                        </div>
+                    </article>
+
+                    <article class="bg-slate-800 rounded-xl border border-slate-700 overflow-hidden">
+                        <button class="w-full px-6 py-4 text-left flex justify-between items-center focus:outline-none" onclick="toggleAccordion('acc-mopn')" aria-expanded="false" aria-controls="acc-mopn">
+                            <span class="font-bold text-lg flex items-center gap-2"><span class="text-2xl" aria-hidden="true">📐</span> 2. MOPN (Orthogonal Processing)</span>
+                            <span class="text-slate-400 text-xl transform transition-transform" id="icon-acc-mopn" aria-hidden="true">+</span>
+                        </button>
+                        <div id="acc-mopn" class="accordion-content bg-slate-800/50 px-6 pb-4">
+                            <p class="text-sm text-blue-300 mb-2 mt-2 font-semibold">Inspiración: Decodificación ortogonal cortical.</p>
+                            <ul class="list-disc pl-5 text-sm text-slate-300 space-y-2">
+                                <li><strong>Neurociencia:</strong> <a href="https://arxiv.org/pdf/2508.08681" target="_blank" rel="noopener noreferrer" class="text-secondary hover:text-blue-400 hover:underline transition-colors"><em>Tian, K., et al. (2024). "Multi-dimensional Neural Decoding with Orthogonal Representations..." (OrthoSchema).</em></a> Extracción de múltiples variables sin interferencias mediante subespacios ortogonales.</li>
+                            </ul>
+                        </div>
+                    </article>
+
+                    <article class="bg-slate-800 rounded-xl border border-slate-700 overflow-hidden">
+                        <button class="w-full px-6 py-4 text-left flex justify-between items-center focus:outline-none" onclick="toggleAccordion('acc-sct')" aria-expanded="false" aria-controls="acc-sct">
+                            <span class="font-bold text-lg flex items-center gap-2"><span class="text-2xl" aria-hidden="true">💤</span> 3. SCT (Sleep-Cycled Transformers)</span>
+                            <span class="text-slate-400 text-xl transform transition-transform" id="icon-acc-sct" aria-hidden="true">+</span>
+                        </button>
+                        <div id="acc-sct" class="accordion-content bg-slate-800/50 px-6 pb-4">
+                            <p class="text-sm text-blue-300 mb-2 mt-2 font-semibold">Inspiración: Consolidación de memoria y limpieza metabólica.</p>
+                            <ul class="list-disc pl-5 text-sm text-slate-300 space-y-2">
+                                <li><strong>Neurociencia:</strong> <a href="https://www.infobae.com/ciencia/2026/02/23/dormir-bien-ayuda-al-cerebro-a-eliminar-desechos-y-proteger-sus-celulas-de-energia/" target="_blank" rel="noopener noreferrer" class="text-secondary hover:text-blue-400 hover:underline transition-colors"><em>Sehgal, A., et al. (Howard Hughes Medical Institute).</em></a> El sueño activa la eliminación de residuos y la poda sináptica para el aprendizaje a largo plazo.</li>
+                                <li><strong>IA Equivalente:</strong> <a href="https://arxiv.org/abs/1612.00796" target="_blank" rel="noopener noreferrer" class="text-secondary hover:text-blue-400 hover:underline transition-colors"><em>Kirkpatrick, J., et al. (2017). "Overcoming catastrophic forgetting..." (EWC).</em></a> Penaliza cambios en pesos críticos para retener memoria previa.</li>
+                            </ul>
+                        </div>
+                    </article>
+
+                    <article class="bg-slate-800 rounded-xl border border-slate-700 overflow-hidden">
+                        <button class="w-full px-6 py-4 text-left flex justify-between items-center focus:outline-none" onclick="toggleAccordion('acc-gma')" aria-expanded="false" aria-controls="acc-gma">
+                            <span class="font-bold text-lg flex items-center gap-2"><span class="text-2xl" aria-hidden="true">🛡️</span> 4. GMA-MoE (Glial Modulation)</span>
+                            <span class="text-slate-400 text-xl transform transition-transform" id="icon-acc-gma" aria-hidden="true">+</span>
+                        </button>
+                        <div id="acc-gma" class="accordion-content bg-slate-800/50 px-6 pb-4">
+                            <p class="text-sm text-blue-300 mb-2 mt-2 font-semibold">Inspiración: Modulación sináptica por células gliales.</p>
+                            <ul class="list-disc pl-5 text-sm text-slate-300 space-y-2">
+                                <li><strong>Neurociencia:</strong> <a href="https://fpmaragall.org/wp-content/uploads/2025/04/13.-NP_PMRP-Alacant_CAST.pdf" target="_blank" rel="noopener noreferrer" class="text-secondary hover:text-blue-400 hover:underline transition-colors">Astrocitos y microglía regulan la excitabilidad neuronal según la demanda cognitiva (Fundación Pasqual Maragall).</a></li>
+                                <li><strong>IA Equivalente:</strong> <a href="https://arxiv.org/abs/1701.06538" target="_blank" rel="noopener noreferrer" class="text-secondary hover:text-blue-400 hover:underline transition-colors"><em>Shazeer, N., et al. (2017)</em></a> / <a href="https://arxiv.org/abs/2401.04088" target="_blank" rel="noopener noreferrer" class="text-secondary hover:text-blue-400 hover:underline transition-colors"><em>Jiang, A. Q., et al. (2024). "Mixtral of Experts".</em></a> Enrutamiento hacia sub-redes expertas.</li>
+                            </ul>
+                        </div>
+                    </article>
+
+                    <article class="bg-slate-800 rounded-xl border border-slate-700 overflow-hidden">
+                        <button class="w-full px-6 py-4 text-left flex justify-between items-center focus:outline-none" onclick="toggleAccordion('acc-pmt')" aria-expanded="false" aria-controls="acc-pmt">
+                            <span class="font-bold text-lg flex items-center gap-2"><span class="text-2xl" aria-hidden="true">⚡</span> 5. PMT (Predictive Minimalist Trace)</span>
+                            <span class="text-slate-400 text-xl transform transition-transform" id="icon-acc-pmt" aria-hidden="true">+</span>
+                        </button>
+                        <div id="acc-pmt" class="accordion-content bg-slate-800/50 px-6 pb-4">
+                            <p class="text-sm text-blue-300 mb-2 mt-2 font-semibold">Inspiración: Procesamiento predictivo.</p>
+                            <ul class="list-disc pl-5 text-sm text-slate-300 space-y-2">
+                                <li><strong>Neurociencia:</strong> <a href="https://escholarship.org/content/qt21c5f7b4/qt21c5f7b4.pdf" target="_blank" rel="noopener noreferrer" class="text-secondary hover:text-blue-400 hover:underline transition-colors"><em>Friston, K. (2010) / Werning, M. (2020) "Trace Minimalism".</em></a> El cerebro ahorra energía procesando solo los "errores de predicción" (sorpresas).</li>
+                                <li><strong>IA Equivalente:</strong> <a href="https://arxiv.org/abs/2004.02178" target="_blank" rel="noopener noreferrer" class="text-secondary hover:text-blue-400 hover:underline transition-colors"><em>Liu, W., et al. (2020). "FastBERT... Adaptive Inference Time".</em></a> Salidas tempranas basadas en confianza.</li>
+                            </ul>
+                        </div>
+                    </article>
+
+                    <article class="bg-slate-800 rounded-xl border border-slate-700 overflow-hidden">
+                        <button class="w-full px-6 py-4 text-left flex justify-between items-center focus:outline-none" onclick="toggleAccordion('acc-cen')" aria-expanded="false" aria-controls="acc-cen">
+                            <span class="font-bold text-lg flex items-center gap-2"><span class="text-2xl" aria-hidden="true">🔮</span> 6. CEN (Counterfactual Episodic)</span>
+                            <span class="text-slate-400 text-xl transform transition-transform" id="icon-acc-cen" aria-hidden="true">+</span>
+                        </button>
+                        <div id="acc-cen" class="accordion-content bg-slate-800/50 px-6 pb-4">
+                            <p class="text-sm text-blue-300 mb-2 mt-2 font-semibold">Inspiración: Memoria episódica y viaje temporal mental.</p>
+                            <ul class="list-disc pl-5 text-sm text-slate-300 space-y-2">
+                                <li><strong>Neurociencia:</strong> <a href="https://people.duke.edu/~fd13/2019/De_Brigard_Parikh_2019_CurrDirPsychScience.pdf" target="_blank" rel="noopener noreferrer" class="text-secondary hover:text-blue-400 hover:underline transition-colors"><em>De Brigard, F., & Parikh, N. (2019). "Episodic Counterfactual Thinking".</em></a> Reutilización de memoria para simular escenarios ("¿Y si...?").</li>
+                                <li><strong>IA Equivalente:</strong> <a href="https://arxiv.org/abs/2305.10601" target="_blank" rel="noopener noreferrer" class="text-secondary hover:text-blue-400 hover:underline transition-colors"><em>Yao, S., et al. (2023). "Tree of Thoughts".</em></a> Ramificación lógica para resolver problemas en LLMs.</li>
+                            </ul>
+                        </div>
+                    </article>
+
+                    <article class="bg-slate-800 rounded-xl border border-slate-700 overflow-hidden">
+                        <button class="w-full px-6 py-4 text-left flex justify-between items-center focus:outline-none" onclick="toggleAccordion('acc-vlm')" aria-expanded="false" aria-controls="acc-vlm">
+                            <span class="font-bold text-lg flex items-center gap-2"><span class="text-2xl" aria-hidden="true">👥</span> 7. VLM (Vicarious Learning)</span>
+                            <span class="text-slate-400 text-xl transform transition-transform" id="icon-acc-vlm" aria-hidden="true">+</span>
+                        </button>
+                        <div id="acc-vlm" class="accordion-content bg-slate-800/50 px-6 pb-4">
+                            <p class="text-sm text-blue-300 mb-2 mt-2 font-semibold">Inspiración: Aprendizaje social y latente.</p>
+                            <ul class="list-disc pl-5 text-sm text-slate-300 space-y-2">
+                                <li><strong>Neurociencia/Psicología:</strong> <a href="https://meehl.umn.edu/sites/meehl.umn.edu/files/files/031tolman.pdf" target="_blank" rel="noopener noreferrer" class="text-secondary hover:text-blue-400 hover:underline transition-colors">Conceptos de Tolman. Asimilar comportamientos complejos observando estados exitosos de un "maestro".</a></li>
+                                <li><strong>IA Equivalente:</strong> <a href="https://arxiv.org/abs/1503.02531" target="_blank" rel="noopener noreferrer" class="text-secondary hover:text-blue-400 hover:underline transition-colors"><em>Hinton, G., et al. (2015). "Distilling the Knowledge in a Neural Network".</em></a> Destilación de conocimiento aplicado en tiempo real con aislamiento de gradientes.</li>
+                            </ul>
+                        </div>
+                    </article>
+                </div>
             </div>
+        </section>
 
-            <div class="grid grid-cols-1 lg:grid-cols-2 gap-10">
-                <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
-                    <h3 class="text-xl font-bold text-slate-800 mb-2">Velocidad de Inferencia</h3>
-                    <p class="text-sm text-slate-500 mb-6">Tiempo de procesamiento (en segundos) para la misma carga de trabajo. Menor es mejor.</p>
-                    <div class="chart-container">
-                        <canvas id="timeChart"></canvas>
+        <section id="metodologia" class="py-20 bg-white border-y border-slate-100">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                <div class="flex flex-col lg:flex-row gap-12 items-center">
+                    <div class="w-full lg:w-1/2">
+                        <h2 class="text-3xl font-bold text-primary sm:text-4xl mb-6">Metodología Científica Estricta</h2>
+                        <p class="text-lg text-slate-600 mb-8 leading-relaxed">
+                            Para evitar la pseudociencia matemática de modelos simulados, el framework exige el cumplimiento de 5 requisitos técnicos obligatorios para evaluación.
+                        </p>
+                        
+                        <div class="bg-slate-50 p-6 rounded-2xl border border-slate-200" aria-live="polite">
+                            <div class="flex justify-between items-center mb-4">
+                                <span class="font-bold text-slate-800">Progreso de Auditoría en Código</span>
+                                <span id="audit-progress-text" class="text-secondary font-bold">0%</span>
+                            </div>
+                            <div class="w-full bg-slate-200 rounded-full h-2.5 mb-6">
+                                <div id="audit-progress-bar" class="bg-secondary h-2.5 rounded-full transition-all duration-500" style="width: 0%" role="progressbar" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100"></div>
+                            </div>
+                            <p class="text-sm text-slate-500 italic">Haz clic en los requisitos de la derecha para verificar su implementación en la base de código.</p>
+                        </div>
                     </div>
-                    <div class="mt-4 text-sm text-slate-600 bg-blue-50 p-3 rounded-lg border border-blue-100">
-                        <strong>Insight:</strong> El modelo DCA (Conectoma) logra una reducción del tiempo a la mitad (~1.21s) en comparación con la atención densa tradicional, logrando casi medio millón de tokens por segundo.
+
+                    <div class="w-full lg:w-1/2">
+                        <div class="space-y-4">
+                            <div class="checklist-item flex items-start gap-4 p-4 border border-slate-200 rounded-xl cursor-pointer hover:bg-slate-50 transition-colors" onclick="toggleCheck(this, 0)" role="checkbox" aria-checked="false" tabindex="0">
+                                <div class="check-circle w-6 h-6 rounded-full border-2 border-slate-300 flex items-center justify-center flex-shrink-0 mt-0.5 transition-colors" aria-hidden="true"></div>
+                                <div>
+                                    <h4 class="font-bold text-slate-800">Cero Datos Sintéticos</h4>
+                                    <p class="text-sm text-slate-600 mt-1">Uso de Datasets reales (<code class="text-xs text-blue-600">HuggingFaceFW/fineweb-edu</code>) y tokenización real (SmolLM-135M). Prohibido el uso de ruido aleatorio para medir el Loss.</p>
+                                </div>
+                            </div>
+
+                            <div class="checklist-item flex items-start gap-4 p-4 border border-slate-200 rounded-xl cursor-pointer hover:bg-slate-50 transition-colors" onclick="toggleCheck(this, 1)" role="checkbox" aria-checked="false" tabindex="0">
+                                <div class="check-circle w-6 h-6 rounded-full border-2 border-slate-300 flex items-center justify-center flex-shrink-0 mt-0.5 transition-colors" aria-hidden="true"></div>
+                                <div>
+                                    <h4 class="font-bold text-slate-800">Escasez de Hardware Real</h4>
+                                    <p class="text-sm text-slate-600 mt-1">Implementación de DCA con <code class="text-xs text-blue-600">torch.sparse</code>, garantizando un ahorro auténtico en VRAM en la GPU, no solo una máscara matemática multiplicativa.</p>
+                                </div>
+                            </div>
+
+                            <div class="checklist-item flex items-start gap-4 p-4 border border-slate-200 rounded-xl cursor-pointer hover:bg-slate-50 transition-colors" onclick="toggleCheck(this, 2)" role="checkbox" aria-checked="false" tabindex="0">
+                                <div class="check-circle w-6 h-6 rounded-full border-2 border-slate-300 flex items-center justify-center flex-shrink-0 mt-0.5 transition-colors" aria-hidden="true"></div>
+                                <div>
+                                    <h4 class="font-bold text-slate-800">Aislamiento de Gradientes</h4>
+                                    <p class="text-sm text-slate-600 mt-1">Uso estricto de <code class="text-xs text-blue-600">.detach()</code> en el módulo VLM para evitar fuga de gradientes y la contaminación cruzada en el backpropagation.</p>
+                                </div>
+                            </div>
+
+                            <div class="checklist-item flex items-start gap-4 p-4 border border-slate-200 rounded-xl cursor-pointer hover:bg-slate-50 transition-colors" onclick="toggleCheck(this, 3)" role="checkbox" aria-checked="false" tabindex="0">
+                                <div class="check-circle w-6 h-6 rounded-full border-2 border-slate-300 flex items-center justify-center flex-shrink-0 mt-0.5 transition-colors" aria-hidden="true"></div>
+                                <div>
+                                    <h4 class="font-bold text-slate-800">Granularidad de Tokens</h4>
+                                    <p class="text-sm text-slate-600 mt-1">El mecanismo PMT realiza el Early Exit aislando tokens específicos (Token Masking), manteniendo la coherencia de la secuencia sin interrumpir el Batch.</p>
+                                </div>
+                            </div>
+
+                            <div class="checklist-item flex items-start gap-4 p-4 border border-slate-200 rounded-xl cursor-pointer hover:bg-slate-50 transition-colors" onclick="toggleCheck(this, 4)" role="checkbox" aria-checked="false" tabindex="0">
+                                <div class="check-circle w-6 h-6 rounded-full border-2 border-slate-300 flex items-center justify-center flex-shrink-0 mt-0.5 transition-colors" aria-hidden="true"></div>
+                                <div>
+                                    <h4 class="font-bold text-slate-800">Profiling Honesto</h4>
+                                    <p class="text-sm text-slate-600 mt-1">Tiempos cronometrados con precisión mediante eventos nativos de hardware en GPU (<code class="text-xs text-blue-600">torch.cuda.Event(enable_timing=True)</code>).</p>
+                                </div>
+                            </div>
+
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section id="resultados" class="py-20 bg-background border-b border-slate-200">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                <div class="text-center max-w-3xl mx-auto mb-16">
+                    <span class="inline-block py-1 px-3 rounded-full bg-emerald-100 text-emerald-800 text-sm font-semibold tracking-wider mb-4 border border-emerald-200">
+                        DATOS EMPÍRICOS
+                    </span>
+                    <h2 class="text-3xl font-bold text-primary sm:text-4xl mb-4">Eficiencia vs Precisión: Benchmark</h2>
+                    <p class="text-lg text-slate-600 leading-relaxed">
+                        Evaluación comparativa del Transformer Baseline contra nuestras arquitecturas. El objetivo es identificar las combinaciones que ofrecen la mejor relación precisión-eficiencia.
+                    </p>
+                </div>
+
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-10">
+                    <article class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
+                        <h3 class="text-xl font-bold text-slate-800 mb-2">Velocidad de Inferencia</h3>
+                        <p class="text-sm text-slate-500 mb-6">Tiempo de procesamiento (en segundos) para la misma carga de trabajo. Menor es mejor.</p>
+                        <div class="chart-container">
+                            <canvas id="timeChart" aria-label="Gráfico de barras mostrando el tiempo de inferencia"></canvas>
+                        </div>
+                        <div class="mt-4 text-sm text-slate-600 bg-blue-50 p-3 rounded-lg border border-blue-100">
+                            <strong>Insight:</strong> El modelo DCA (Conectoma) logra una reducción del tiempo a la mitad (~1.21s) en comparación con la atención densa tradicional, logrando casi medio millón de tokens por segundo.
+                        </div>
+                    </article>
+
+                    <article class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
+                        <h3 class="text-xl font-bold text-slate-800 mb-2">Compromiso: Parámetros vs Loss</h3>
+                        <p class="text-sm text-slate-500 mb-6">Pérdida cruzada (Eje Y, menor es mejor) en función del número de parámetros. Eje X en miles.</p>
+                        <div class="chart-container">
+                            <canvas id="scatterChart" aria-label="Gráfico de dispersión mostrando la relación entre parámetros y error loss"></canvas>
+                        </div>
+                        <div class="mt-4 text-sm text-slate-600 bg-emerald-50 p-3 rounded-lg border border-emerald-100">
+                            <strong>Insight:</strong> MOPN y DCA reducen significativamente el peso computacional (~25% menos parámetros) manteniendo una pérdida estructural casi idéntica a la del Baseline rígido.
+                        </div>
+                    </article>
+                </div>
+                
+                <div class="mt-12 text-center">
+                    <p class="text-slate-600 mb-6 max-w-2xl mx-auto">
+                        Los resultados confirman que la especialización estructural (inspirada en la escasez y ortogonalidad cortical) puede superar el enfoque contemporáneo de escalado por fuerza bruta.
+                    </p>
+                </div>
+            </div>
+        </section>
+
+        <section id="laboratorio" class="py-20 bg-slate-50">
+            <div class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
+                <div class="text-center mb-12">
+                    <span class="text-4xl block mb-4" aria-hidden="true">🎓</span>
+                    <h2 class="text-3xl font-bold text-primary sm:text-4xl mb-4">Laboratorio y Ejercicios Prácticos</h2>
+                    <p class="text-lg text-slate-600 max-w-2xl mx-auto">
+                        Material didáctico para estudiantes del Departamento de Inteligencia Artificial. Aplica los conceptos de arquitectura avanzada directamente sobre el repositorio oficial.
+                    </p>
+                </div>
+
+                <div class="bg-slate-900 rounded-xl overflow-hidden shadow-lg mb-12 border border-slate-700">
+                    <div class="bg-slate-800 px-4 py-2 flex items-center gap-2 border-b border-slate-700" aria-hidden="true">
+                        <div class="w-3 h-3 rounded-full bg-red-500"></div>
+                        <div class="w-3 h-3 rounded-full bg-yellow-500"></div>
+                        <div class="w-3 h-3 rounded-full bg-green-500"></div>
+                        <span class="text-slate-400 text-xs font-mono ml-4">student@ai-lab:~</span>
+                    </div>
+                    <div class="p-6 font-mono text-sm text-green-400">
+                        <p class="mb-2"><span class="text-blue-400">$</span> echo "Paso 1: Clonar el entorno de experimentación"</p>
+                        <p class="mb-4 text-white">Paso 1: Clonar el entorno de experimentación</p>
+                        <p class="mb-2"><span class="text-blue-400">$</span> git clone https://github.com/jacoboariza/neuro_transformer</p>
+                        <p class="mb-2 opacity-70">Cloning into 'neuro_transformer'...</p>
+                        <p class="mb-2 opacity-70">remote: Enumerating objects: 124, done.</p>
+                        <p class="mb-4 opacity-70">Receiving objects: 100% (124/124), 2.5 MiB | 4.2 MiB/s, done.</p>
+                        <p class="mb-2"><span class="text-blue-400">$</span> cd neuro_transformer && pip install -r requirements.txt</p>
+                        <p class="animate-pulse text-white">_</p>
                     </div>
                 </div>
 
-                <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
-                    <h3 class="text-xl font-bold text-slate-800 mb-2">Compromiso: Parámetros vs Loss</h3>
-                    <p class="text-sm text-slate-500 mb-6">Pérdida cruzada (Eje Y, menor es mejor) en función del número de parámetros. Eje X en miles.</p>
-                    <div class="chart-container">
-                        <canvas id="scatterChart"></canvas>
-                    </div>
-                    <div class="mt-4 text-sm text-slate-600 bg-emerald-50 p-3 rounded-lg border border-emerald-100">
-                        <strong>Insight:</strong> MOPN y DCA reducen significativamente el peso computacional (~25% menos parámetros) manteniendo una pérdida estructural casi idéntica a la del Baseline rígido.
-                    </div>
+                <h3 class="text-2xl font-bold text-slate-800 mb-6 text-center">Ejercicios de Discusión</h3>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+                    <article class="bg-white p-6 rounded-xl border border-slate-200 shadow-sm relative group">
+                        <div class="absolute -top-4 -left-4 w-8 h-8 bg-secondary text-white rounded-full flex items-center justify-center font-bold text-sm shadow-md" aria-hidden="true">1</div>
+                        <h4 class="font-bold text-slate-800 mb-3 text-lg mt-2">Trade-off en DCA</h4>
+                        <p class="text-slate-600 text-sm mb-4">Revisa la gráfica de "Compromiso: Parámetros vs Loss" del Benchmark. Explica por qué el modelo DCA tiene un Loss ligeramente superior al Transformer base, pero aun así es considerado muy superior para arquitecturas de Edge AI (IA en móviles).</p>
+                        <button class="text-secondary text-sm font-semibold hover:text-primary transition-colors focus:outline-none" onclick="toggleDetails('hint-1')" aria-expanded="false" aria-controls="hint-1">Ver Pista 👁️</button>
+                        <div id="hint-1" class="hidden mt-3 p-3 bg-blue-50 text-blue-800 text-xs rounded border border-blue-200">
+                            Pista: Piensa en los recursos limitados de un dispositivo móvil (batería, VRAM) frente a una leve pérdida de 0.1 en perplejidad. ¿Compensa procesar el doble de rápido?
+                        </div>
+                    </article>
+
+                    <article class="bg-white p-6 rounded-xl border border-slate-200 shadow-sm relative group">
+                        <div class="absolute -top-4 -left-4 w-8 h-8 bg-secondary text-white rounded-full flex items-center justify-center font-bold text-sm shadow-md" aria-hidden="true">2</div>
+                        <h4 class="font-bold text-slate-800 mb-3 text-lg mt-2">Token Masking en PMT</h4>
+                        <p class="text-slate-600 text-sm mb-4">Si aplicamos un Early Exit en la Capa 2 para la palabra "perro" pero necesitamos llegar a la Capa 12 para la palabra "cuántico", ¿cómo recomponemos el tensor final para mantener la forma geométrica requerida por PyTorch antes de la proyección del vocabulario?</p>
+                        <button class="text-secondary text-sm font-semibold hover:text-primary transition-colors focus:outline-none" onclick="toggleDetails('hint-2')" aria-expanded="false" aria-controls="hint-2">Ver Pista 👁️</button>
+                        <div id="hint-2" class="hidden mt-3 p-3 bg-blue-50 text-blue-800 text-xs rounded border border-blue-200">
+                            Pista: Investiga cómo funcionan los índices de las máscaras booleanas (`~mask`) en PyTorch para actualizar solo fracciones de un tensor en un bucle de capas profundas.
+                        </div>
+                    </article>
                 </div>
             </div>
-            
-            <div class="mt-12 text-center">
-                <p class="text-slate-600 mb-6 max-w-2xl mx-auto">
-                    Los resultados confirman que la especialización estructural (inspirada en la escasez y ortogonalidad cortical) puede superar el enfoque contemporáneo de escalado por fuerza bruta.
-                </p>
-            </div>
-        </div>
-    </section>
+        </section>
+    </main>
 
-    <section id="laboratorio" class="py-20 bg-slate-50">
-        <div class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div class="text-center mb-12">
-                <span class="text-4xl block mb-4">🎓</span>
-                <h2 class="text-3xl font-bold text-primary sm:text-4xl mb-4">Laboratorio y Ejercicios Prácticos</h2>
-                <p class="text-lg text-slate-600 max-w-2xl mx-auto">
-                    Material didáctico para estudiantes del Departamento de Inteligencia Artificial. Aplica los conceptos de arquitectura avanzada directamente sobre el repositorio oficial.
-                </p>
-            </div>
-
-            <div class="bg-slate-900 rounded-xl overflow-hidden shadow-lg mb-12 border border-slate-700">
-                <div class="bg-slate-800 px-4 py-2 flex items-center gap-2 border-b border-slate-700">
-                    <div class="w-3 h-3 rounded-full bg-red-500"></div>
-                    <div class="w-3 h-3 rounded-full bg-yellow-500"></div>
-                    <div class="w-3 h-3 rounded-full bg-green-500"></div>
-                    <span class="text-slate-400 text-xs font-mono ml-4">student@ai-lab:~</span>
-                </div>
-                <div class="p-6 font-mono text-sm text-green-400">
-                    <p class="mb-2"><span class="text-blue-400">$</span> echo "Paso 1: Clonar el entorno de experimentación"</p>
-                    <p class="mb-4 text-white">Paso 1: Clonar el entorno de experimentación</p>
-                    <p class="mb-2"><span class="text-blue-400">$</span> git clone https://github.com/jacoboariza/neuro_transformer</p>
-                    <p class="mb-2 opacity-70">Cloning into 'neuro_transformer'...</p>
-                    <p class="mb-2 opacity-70">remote: Enumerating objects: 124, done.</p>
-                    <p class="mb-4 opacity-70">Receiving objects: 100% (124/124), 2.5 MiB | 4.2 MiB/s, done.</p>
-                    <p class="mb-2"><span class="text-blue-400">$</span> cd neuro_transformer && pip install -r requirements.txt</p>
-                    <p class="animate-pulse text-white">_</p>
-                </div>
-            </div>
-
-            <h3 class="text-2xl font-bold text-slate-800 mb-6 text-center">Ejercicios de Discusión</h3>
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
-                <div class="bg-white p-6 rounded-xl border border-slate-200 shadow-sm relative group">
-                    <div class="absolute -top-4 -left-4 w-8 h-8 bg-secondary text-white rounded-full flex items-center justify-center font-bold text-sm shadow-md">1</div>
-                    <h4 class="font-bold text-slate-800 mb-3 text-lg mt-2">Trade-off en DCA</h4>
-                    <p class="text-slate-600 text-sm mb-4">Revisa la gráfica de "Compromiso: Parámetros vs Loss" del Benchmark. Explica por qué el modelo DCA tiene un Loss ligeramente superior al Transformer base, pero aun así es considerado muy superior para arquitecturas de Edge AI (IA en móviles).</p>
-                    <button class="text-secondary text-sm font-semibold hover:text-primary transition-colors focus:outline-none" onclick="toggleDetails('hint-1')">Ver Pista 👁️</button>
-                    <div id="hint-1" class="hidden mt-3 p-3 bg-blue-50 text-blue-800 text-xs rounded border border-blue-200">
-                        Pista: Piensa en los recursos limitados de un dispositivo móvil (batería, VRAM) frente a una leve pérdida de 0.1 en perplejidad. ¿Compensa procesar el doble de rápido?
-                    </div>
-                </div>
-
-                <div class="bg-white p-6 rounded-xl border border-slate-200 shadow-sm relative group">
-                    <div class="absolute -top-4 -left-4 w-8 h-8 bg-secondary text-white rounded-full flex items-center justify-center font-bold text-sm shadow-md">2</div>
-                    <h4 class="font-bold text-slate-800 mb-3 text-lg mt-2">Token Masking en PMT</h4>
-                    <p class="text-slate-600 text-sm mb-4">Si aplicamos un Early Exit en la Capa 2 para la palabra "perro" pero necesitamos llegar a la Capa 12 para la palabra "cuántico", ¿cómo recomponemos el tensor final para mantener la forma geométrica requerida por PyTorch antes de la proyección del vocabulario?</p>
-                    <button class="text-secondary text-sm font-semibold hover:text-primary transition-colors focus:outline-none" onclick="toggleDetails('hint-2')">Ver Pista 👁️</button>
-                    <div id="hint-2" class="hidden mt-3 p-3 bg-blue-50 text-blue-800 text-xs rounded border border-blue-200">
-                        Pista: Investiga cómo funcionan los índices de las máscaras booleanas (`~mask`) en PyTorch para actualizar solo fracciones de un tensor en un bucle de capas profundas.
-                    </div>
-                </div>
-            </div>
-        </div>
-    </section>
-
-    <footer class="bg-slate-900 text-white py-12 border-t border-slate-800">
+    <footer class="bg-slate-900 text-white py-12 border-t border-slate-800" role="contentinfo">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div class="grid grid-cols-1 md:grid-cols-3 gap-8 items-center text-center md:text-left">
                 <div class="col-span-1 md:col-span-2">
                     <h3 class="text-2xl font-bold text-white mb-2 flex items-center justify-center md:justify-start">
-                        <span class="mr-2">🧠</span> Neuro Transformer
+                        <span class="mr-2" aria-hidden="true">🧠</span> Neuro Transformer
                     </h3>
                     <p class="text-slate-400 max-w-md mx-auto md:mx-0 text-sm">
                         Material de estudio e investigación para el desarrollo de la próxima generación de modelos de lenguaje eficientes y biológicamente plausibles.
@@ -763,7 +820,7 @@
                 <div class="col-span-1 flex justify-center md:justify-end">
                     <a href="https://github.com/jacoboariza/neuro_transformer" target="_blank" rel="noopener noreferrer" class="bg-secondary hover:bg-blue-600 text-white px-6 py-3 rounded-xl font-medium transition-colors shadow-lg flex items-center gap-2">
                         <span>Ver Repositorio</span>
-                        <span class="text-xl">↗</span>
+                        <span class="text-xl" aria-hidden="true">↗</span>
                     </a>
                 </div>
             </div>
@@ -771,7 +828,7 @@
                 <p>© 2026 Proyecto Neuro Transformer / Dpto. Inteligencia Artificial.</p>
                 <div class="flex space-x-6 mt-4 md:mt-0">
                     <a href="#" class="hover:text-white transition-colors">Documentación</a>
-                    <a href="#" class="hover:text-white transition-colors">Prof. jacoboariza</a>
+                    <a href="https://github.com/jacoboariza" class="hover:text-white transition-colors">Prof. jacoboariza</a>
                     <a href="#" class="hover:text-white transition-colors">Licencia MIT</a>
                 </div>
             </div>
@@ -783,12 +840,20 @@
         const mobileMenu = document.getElementById('mobile-menu');
 
         mobileMenuBtn.addEventListener('click', () => {
-            mobileMenu.classList.toggle('hidden');
+            const isHidden = mobileMenu.classList.contains('hidden');
+            if(isHidden) {
+                mobileMenu.classList.remove('hidden');
+                mobileMenuBtn.setAttribute('aria-expanded', 'true');
+            } else {
+                mobileMenu.classList.add('hidden');
+                mobileMenuBtn.setAttribute('aria-expanded', 'false');
+            }
         });
 
         document.querySelectorAll('#mobile-menu a').forEach(link => {
             link.addEventListener('click', () => {
                 mobileMenu.classList.add('hidden');
+                mobileMenuBtn.setAttribute('aria-expanded', 'false');
             });
         });
 
@@ -800,14 +865,18 @@
 
             if (tabId === 'v1') {
                 v1Tab.className = 'tab-active py-4 px-6 text-lg font-medium transition-colors whitespace-nowrap outline-none';
+                v1Tab.setAttribute('aria-selected', 'true');
                 v2Tab.className = 'tab-inactive py-4 px-6 text-lg font-medium transition-colors whitespace-nowrap outline-none';
+                v2Tab.setAttribute('aria-selected', 'false');
                 v1Content.classList.remove('hidden');
                 v1Content.classList.add('grid');
                 v2Content.classList.add('hidden');
                 v2Content.classList.remove('grid');
             } else {
                 v2Tab.className = 'tab-active py-4 px-6 text-lg font-medium transition-colors whitespace-nowrap outline-none';
+                v2Tab.setAttribute('aria-selected', 'true');
                 v1Tab.className = 'tab-inactive py-4 px-6 text-lg font-medium transition-colors whitespace-nowrap outline-none';
+                v1Tab.setAttribute('aria-selected', 'false');
                 v2Content.classList.remove('hidden');
                 v2Content.classList.add('grid');
                 v1Content.classList.add('hidden');
@@ -817,25 +886,33 @@
 
         function toggleDetails(id) {
             const el = document.getElementById(id);
+            // Updating generic toggle for a11y, assumes parent element fired it and needs aria-expanded update
+            const parentBtn = event.currentTarget; 
+            
             if (el.classList.contains('hidden')) {
                 el.classList.remove('hidden');
                 el.classList.add('block');
+                if(parentBtn) parentBtn.setAttribute('aria-expanded', 'true');
             } else {
                 el.classList.add('hidden');
                 el.classList.remove('block');
+                if(parentBtn) parentBtn.setAttribute('aria-expanded', 'false');
             }
         }
 
         function toggleAccordion(id) {
             const content = document.getElementById(id);
             const icon = document.getElementById('icon-' + id);
+            const parentBtn = event.currentTarget;
             
             if (content.classList.contains('expanded')) {
                 content.classList.remove('expanded');
                 icon.style.transform = 'rotate(0deg)';
+                if(parentBtn) parentBtn.setAttribute('aria-expanded', 'false');
             } else {
                 content.classList.add('expanded');
                 icon.style.transform = 'rotate(45deg)';
+                if(parentBtn) parentBtn.setAttribute('aria-expanded', 'true');
             }
         }
 
@@ -851,12 +928,14 @@
                 circle.innerHTML = '<span class="text-white font-bold text-sm">✓</span>';
                 element.classList.add('bg-blue-50', 'border-blue-200');
                 element.classList.remove('border-slate-200');
+                element.setAttribute('aria-checked', 'true');
             } else {
                 circle.classList.add('border-slate-300');
                 circle.classList.remove('bg-secondary', 'border-secondary');
                 circle.innerHTML = '';
                 element.classList.remove('bg-blue-50', 'border-blue-200');
                 element.classList.add('border-slate-200');
+                element.setAttribute('aria-checked', 'false');
             }
             updateProgress();
         }
@@ -865,7 +944,10 @@
             const completed = checks.filter(c => c).length;
             const percentage = (completed / checks.length) * 100;
             
-            document.getElementById('audit-progress-bar').style.width = percentage + '%';
+            const bar = document.getElementById('audit-progress-bar');
+            bar.style.width = percentage + '%';
+            bar.setAttribute('aria-valuenow', percentage);
+            
             document.getElementById('audit-progress-text').innerText = Math.round(percentage) + '%';
         }
 

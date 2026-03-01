@@ -232,15 +232,17 @@ def evaluate(
     vicarious_loss_weight: float,
 ) -> Dict[str, float]:
     model.eval()
-    total_loss_sum = 0.0
-    prediction_loss_sum = 0.0
+    # Acumuladores en GPU para evitar sincronización por batch
+    total_loss_tensor = torch.tensor(0.0, device=device)
+    prediction_loss_tensor = torch.tensor(0.0, device=device)
+    layers_used_tensor = torch.tensor(0.0, device=device)
+    depth_ratio_tensor = torch.tensor(0.0, device=device)
+    early_exit_bonus_tensor = torch.tensor(0.0, device=device)
+    pmt_reward_tensor = torch.tensor(0.0, device=device)
+    
     total_tokens = 0
-    layers_used_sum = 0.0
-    depth_ratio_sum = 0.0
-    early_exit_bonus_sum = 0.0
-    pmt_reward_sum = 0.0
-    eval_ms_sum = 0.0
     batch_count = 0
+    eval_ms_sum = 0.0
 
     with torch.no_grad():
         for inputs, targets in dataloader:
@@ -265,24 +267,32 @@ def evaluate(
                     vicarious_loss_weight=vicarious_loss_weight,
                 )
 
-            token_count = int(targets.numel())
-            total_loss_sum += float(loss.item()) * token_count
-            prediction_loss_sum += float(prediction_loss.item()) * token_count
+            # Acumulación asíncrona en GPU
+            token_count = targets.numel()
+            total_loss_tensor += loss * token_count
+            prediction_loss_tensor += prediction_loss * token_count
+            
+            # Estas métricas vienen como floats o tensores escalares de compute_composite_loss
+            # Aseguramos que sean tensores para acumular en GPU
+            layers_used_tensor += layers_used
+            depth_ratio_tensor += depth_ratio
+            early_exit_bonus_tensor += early_exit_bonus
+            pmt_reward_tensor += pmt_reward
+            
             total_tokens += token_count
-            layers_used_sum += float(layers_used)
-            depth_ratio_sum += float(depth_ratio)
-            early_exit_bonus_sum += float(early_exit_bonus)
-            pmt_reward_sum += float(pmt_reward)
-            eval_ms_sum += float(timer.stop(eval_start))
             batch_count += 1
+            
+            # Timer sí requiere sincronización puntual, pero es necesario para profiling preciso
+            eval_ms_sum += float(timer.stop(eval_start))
 
+    # Sincronización final única
     return {
-        "total_loss": total_loss_sum / max(total_tokens, 1),
-        "prediction_loss": prediction_loss_sum / max(total_tokens, 1),
-        "avg_layers_used": layers_used_sum / max(batch_count, 1),
-        "avg_depth_ratio": depth_ratio_sum / max(batch_count, 1),
-        "avg_early_exit_bonus": early_exit_bonus_sum / max(batch_count, 1),
-        "avg_pmt_reward": pmt_reward_sum / max(batch_count, 1),
+        "total_loss": float(total_loss_tensor.item()) / max(total_tokens, 1),
+        "prediction_loss": float(prediction_loss_tensor.item()) / max(total_tokens, 1),
+        "avg_layers_used": float(layers_used_tensor.item()) / max(batch_count, 1),
+        "avg_depth_ratio": float(depth_ratio_tensor.item()) / max(batch_count, 1),
+        "avg_early_exit_bonus": float(early_exit_bonus_tensor.item()) / max(batch_count, 1),
+        "avg_pmt_reward": float(pmt_reward_tensor.item()) / max(batch_count, 1),
         "compute_seconds": eval_ms_sum / 1000.0,
     }
 

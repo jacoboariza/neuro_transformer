@@ -122,8 +122,8 @@ class NeuroModelV2(nn.Module):
         num_classes = self.early_exits[0].exit_predictor.out_features
         
         for i in range(self.num_layers):
-            if not bool(active_mask.any()):
-                break
+            # Optimización: Eliminamos el check sincrónico 'if not active_mask.any()'
+            # para evitar stalls CPU-GPU. Las operaciones con tensores vacíos son rápidas/asíncronas.
 
             # 1. Capa de procesamiento profundo
             x_flat = x.reshape(-1, self.embed_dim)

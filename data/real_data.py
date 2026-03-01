@@ -15,13 +15,13 @@ except ImportError:  # pragma: no cover
     AutoTokenizer = None
 
 
-def _load_dataset_split(dataset_name: str, dataset_config: Optional[str], split: str):
+def _load_dataset_split(dataset_name: str, dataset_config: Optional[str], split: str, streaming: bool = False):
     if load_dataset is None:
         raise ImportError("datasets no está instalado. Agrega 'datasets' al entorno.")
 
     if dataset_config:
-        return load_dataset(dataset_name, dataset_config, split=split)
-    return load_dataset(dataset_name, split=split)
+        return load_dataset(dataset_name, dataset_config, split=split, streaming=streaming)
+    return load_dataset(dataset_name, split=split, streaming=streaming)
 
 
 def load_real_dataset_subset(
@@ -35,9 +35,7 @@ def load_real_dataset_subset(
 ) -> Tuple[object, str, Optional[str]]:
     """
     Descarga un subconjunto reproducible de un dataset real de texto.
-
-    Se intenta primero el dataset principal y, si falla, se usa una alternativa
-    de Wikipedia en español para mantener el pipeline operativo.
+    Usa streaming para evitar descargar datasets masivos completos.
     """
 
     candidates = [(dataset_name, dataset_config)]
@@ -47,25 +45,43 @@ def load_real_dataset_subset(
     last_error = None
     resolved_dataset_name = dataset_name
     resolved_dataset_config = dataset_config
+    dataset = None
+
     for candidate_name, candidate_config in candidates:
         try:
-            dataset = _load_dataset_split(
+            # Usamos streaming=True para evitar bloqueo en "Resolving data files" con datasets grandes
+            iterable_dataset = _load_dataset_split(
                 dataset_name=candidate_name,
                 dataset_config=candidate_config,
                 split=split,
+                streaming=True,
             )
+            
+            # Materializamos solo lo necesario
+            if num_samples is not None and num_samples > 0:
+                # Shuffle bufferizado para mezclar un poco sin descargar todo
+                iterable_dataset = iterable_dataset.shuffle(seed=seed, buffer_size=10_000)
+                iterable_dataset = iterable_dataset.take(num_samples)
+            
+            print(f"Descargando muestras de: {candidate_name} ({candidate_config})...")
+            # Convertir a lista para materializar
+            data_list = list(iterable_dataset)
+            if not data_list:
+                raise ValueError("El dataset está vacío o no se pudieron descargar muestras.")
+
+            # Reconvertir a Dataset estándar (en memoria) para compatibilidad con el resto del código
+            # (necesitamos .map(), .len(), acceso por índice)
+            dataset = Dataset.from_list(data_list)
+
             resolved_dataset_name = candidate_name
             resolved_dataset_config = candidate_config
-            print(f"Dataset cargado: {candidate_name} ({candidate_config})")
+            print(f"Dataset cargado en memoria: {candidate_name} ({len(dataset)} muestras)")
             break
         except Exception as exc:  # pragma: no cover - depende del entorno
             last_error = exc
-            print(f"No se pudo cargar {candidate_name} ({candidate_config}): {exc}")
+            print(f"No se pudo cargar {candidate_name} ({candidate_config}) con streaming: {exc}")
     else:
         raise RuntimeError(f"No se pudo cargar ningún dataset real: {last_error}")
-
-    if num_samples is not None and num_samples > 0 and len(dataset) > num_samples:
-        dataset = dataset.shuffle(seed=seed).select(range(num_samples))
 
     return dataset, resolved_dataset_name, resolved_dataset_config
 

@@ -143,18 +143,26 @@ def train_model(
         "epoch_compute_ms": [],
     }
 
-    for _epoch in range(epochs):
+    total_batches = len(dataloader) if hasattr(dataloader, "__len__") else None
+
+    for epoch in range(epochs):
         model.train()
-        total_loss = 0.0
+        # Acumuladores en GPU
+        total_loss_tensor = torch.tensor(0.0, device=device_t)
+        
         batch_count = 0
-        total_step_ms = 0.0
         total_tokens = 0
 
-        for inputs, targets in dataloader:
-            inputs = inputs.to(device_t)
-            targets = targets.to(device_t)
+        # Timer de epoch completo para medir throughput real (incluye carga de datos asíncrona oculta por pipelining)
+        # Para medir solo cómputo GPU estricto, idealmente usaríamos eventos, pero para "train time" el usuario espera wall-clock o GPU-active time.
+        # Usaremos el DeviceTimer para medir el bloque entero de ejecución del epoch.
+        epoch_start_marker = timer.start()
+        
+        print(f"Epoch {epoch + 1}/{epochs} iniciando...")
 
-            step_start = timer.start()
+        for batch_idx, (inputs, targets) in enumerate(dataloader):
+            inputs = inputs.to(device_t, non_blocking=True)
+            targets = targets.to(device_t, non_blocking=True)
 
             optimizer.zero_grad()
 
@@ -168,20 +176,37 @@ def train_model(
             loss.backward()
             optimizer.step()
 
-            step_ms = timer.stop(step_start)
-
-            total_loss += float(loss.item())
-            batch_count += 1
-            total_step_ms += step_ms
+            # Acumulación asíncrona
+            total_loss_tensor += loss
+            
+            # targets.numel() es rápido en CPU (shape)
             total_tokens += int(targets.numel())
-
-        epoch_loss = total_loss / max(batch_count, 1)
+            batch_count += 1
+            
+            if batch_idx % 10 == 0 or (total_batches and batch_idx == total_batches - 1):
+                if total_batches:
+                    percent = (batch_idx + 1) / total_batches * 100
+                    print(f"\r  Batch {batch_idx + 1}/{total_batches} ({percent:.1f}%) - Loss: {loss.item():.4f}", end="", flush=True)
+                else:
+                    print(f"\r  Batch {batch_idx + 1} - Loss: {loss.item():.4f}", end="", flush=True)
+        
+        print() # Nueva línea al terminar el epoch
+        
+        # Sincronización única al final del epoch
+        epoch_ms = timer.stop(epoch_start_marker)
+        
+        epoch_loss = float(total_loss_tensor.item()) / max(batch_count, 1)
+        avg_step_ms = epoch_ms / max(batch_count, 1)
+        
         history["loss"].append(epoch_loss)
-        history["avg_step_ms"].append(total_step_ms / max(batch_count, 1))
+        history["avg_step_ms"].append(avg_step_ms)
         history["epoch_tokens"].append(total_tokens)
-        history["epoch_compute_ms"].append(total_step_ms)
+        history["epoch_compute_ms"].append(epoch_ms)
+        
+        print(f"Epoch {epoch + 1} completado: Loss media={epoch_loss:.4f}, Tiempo={epoch_ms/1000:.2f}s")
 
         if model.__class__.__name__ == "SCT_Layer" and hasattr(model, "sleep_cycle"):
             model.sleep_cycle()
+            print("  Ciclo de sueño SCT ejecutado.")
 
     return history
