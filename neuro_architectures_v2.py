@@ -3,20 +3,11 @@ import torch.nn as nn
 import torch.nn.functional as F
 import time
 
+from models.dca import DCA_Layer as SparseDCA_Layer
+
 # =====================================================================
 # MÓDULOS BASE (v1.0 Simplificados para el experimento v2.0)
 # =====================================================================
-class DCA_Layer(nn.Module):
-    """Capa de Conectoma Dinámico (Sparse) para procesamiento rápido."""
-    def __init__(self, embed_dim, sparsity=0.8):
-        super().__init__()
-        self.linear = nn.Linear(embed_dim, embed_dim)
-        with torch.no_grad():
-            self.mask = (torch.rand(embed_dim, embed_dim) > sparsity).float()
-            
-    def forward(self, x):
-        sparse_weight = self.linear.weight * self.mask.to(x.device)
-        return F.gelu(F.linear(x, sparse_weight, self.linear.bias)) + x
 
 # =====================================================================
 # NUEVOS MÓDULOS (v2.0)
@@ -34,12 +25,11 @@ class PMT_EarlyExit(nn.Module):
         self.exit_predictor = nn.Linear(embed_dim, num_classes)
         
     def forward(self, x):
-        # Devuelve los logits (predicción) y un score de confianza (entropía inversa)
+        # Devuelve logits y confianza por token.
         logits = self.exit_predictor(x)
         probs = F.softmax(logits, dim=-1)
-        # La confianza es la probabilidad máxima (simplificación de baja entropía)
-        confidence, _ = torch.max(probs, dim=-1) 
-        return logits, confidence.mean()
+        confidence = probs.amax(dim=-1)
+        return logits, confidence
 
 class CEN_CounterfactualSimulation(nn.Module):
     """
@@ -85,12 +75,10 @@ class VLM_VicariousStudent(nn.Module):
         
     def observe_and_learn(self, hidden_states):
         """Aprende observando al modelo principal (Teacher) sin gradientes cruzados."""
-        # En inferencia real, esto actualizaría los pesos del estudiante offline
-        with torch.no_grad():
-            compressed = F.relu(self.encoder(hidden_states))
-            mimicked = self.decoder(compressed)
-            # Calculamos la pérdida de imitación (observacional)
-            vicarious_loss = F.mse_loss(mimicked, hidden_states)
+        detached_states = hidden_states.detach()
+        compressed = F.relu(self.encoder(detached_states))
+        mimicked = self.decoder(compressed)
+        vicarious_loss = F.mse_loss(mimicked, detached_states)
         return vicarious_loss
 
 # =====================================================================
@@ -98,13 +86,20 @@ class VLM_VicariousStudent(nn.Module):
 # =====================================================================
 
 class NeuroModelV2(nn.Module):
-    def __init__(self, embed_dim, num_classes, num_layers=6):
+    def __init__(self, embed_dim, num_classes, num_layers=6, dca_sparsity=0.8):
         super().__init__()
         self.num_layers = num_layers
         self.embed_dim = embed_dim
+        self.uses_token_masking = True
+        self.uses_vlm_detach = True
+        self.uses_sparse_dca = True
+        self.last_token_depth = None
+        self.last_active_mask = None
         
         # Capas de procesamiento base (usamos el Conectoma Sparse por eficiencia)
-        self.layers = nn.ModuleList([DCA_Layer(embed_dim) for _ in range(num_layers)])
+        self.layers = nn.ModuleList(
+            [SparseDCA_Layer(embed_dim=embed_dim, sparsity=dca_sparsity) for _ in range(num_layers)]
+        )
         
         # PMT: Añadimos un "Early Exit" después de cada capa
         self.early_exits = nn.ModuleList([PMT_EarlyExit(embed_dim, num_classes) for _ in range(num_layers)])
@@ -117,31 +112,72 @@ class NeuroModelV2(nn.Module):
 
     def forward(self, x, exit_threshold=0.85):
         """
-        Forward pass con Early Exit.
-        exit_threshold: Nivel de confianza requerido para dejar de pensar (0.0 a 1.0).
+        Forward con token masking para early exit por token.
+        exit_threshold: confianza requerida para congelar un token.
         """
         vicarious_losses = []
+        token_depth = torch.zeros(x.size(0), x.size(1), device=x.device, dtype=x.dtype)
+        active_mask = torch.ones(x.size(0), x.size(1), device=x.device, dtype=torch.bool)
+        final_logits = None
+        num_classes = self.early_exits[0].exit_predictor.out_features
         
         for i in range(self.num_layers):
+            if not bool(active_mask.any()):
+                break
+
             # 1. Capa de procesamiento profundo
-            x = self.layers[i](x)
+            x_flat = x.reshape(-1, self.embed_dim)
+            active_flat = active_mask.reshape(-1)
+
+            active_tokens = x_flat[active_flat].unsqueeze(1)
+            processed_active = self.layers[i](active_tokens).squeeze(1)
             
             # 2. Simulación Contrafáctica (Solo en la capa central para decisiones críticas)
             if i == self.num_layers // 2:
-                x = self.cen_module(x)
+                processed_active = self.cen_module(processed_active.unsqueeze(1)).squeeze(1)
+
+            x_flat = x_flat.clone()
+            x_flat[active_flat] = processed_active
+            x = x_flat.reshape_as(x)
                 
             # 3. Aprendizaje Vicario (El estudiante observa el pensamiento actual)
             vicarious_losses.append(self.vlm_student.observe_and_learn(x))
                 
-            # 4. PMT: Evaluación de Salida Temprana (Early Exit)
-            logits, confidence = self.early_exits[i](x)
-            
-            # Si la predicción no es una sorpresa (alta confianza), cortocircuitamos la red
-            if confidence >= exit_threshold and i < self.num_layers - 1:
-                return logits, i + 1, sum(vicarious_losses)/len(vicarious_losses)
-                
-        # Si la información era muy compleja, se ejecutaron todas las capas
-        return logits, self.num_layers, sum(vicarious_losses)/len(vicarious_losses)
+            # 4. PMT por token: congelamos tokens confiables y propagamos tokens sorpresa.
+            logits_flat = x.new_zeros((x_flat.size(0), num_classes))
+            confidence_flat = x.new_ones((x_flat.size(0),))
+
+            active_logits = self.early_exits[i].exit_predictor(x_flat[active_flat])
+            active_confidence = torch.softmax(active_logits, dim=-1).amax(dim=-1)
+
+            logits_flat[active_flat] = active_logits
+            confidence_flat[active_flat] = active_confidence
+
+            logits = logits_flat.reshape(x.size(0), x.size(1), num_classes)
+            confidence = confidence_flat.reshape(x.size(0), x.size(1))
+
+            if final_logits is None:
+                final_logits = logits
+            else:
+                final_flat = final_logits.reshape(-1, num_classes)
+                final_flat = final_flat.clone()
+                final_flat[active_flat] = active_logits
+                final_logits = final_flat.reshape_as(final_logits)
+
+
+            token_depth = token_depth + active_mask.to(dtype=token_depth.dtype)
+            continue_mask = confidence < exit_threshold
+            active_mask = active_mask & continue_mask
+
+        if final_logits is None:
+            final_logits, _ = self.early_exits[-1](x)
+
+        self.last_token_depth = token_depth.detach()
+        self.last_active_mask = active_mask.detach()
+
+        avg_layers_used = float(token_depth.mean().item())
+        avg_vicarious_loss = sum(vicarious_losses) / max(len(vicarious_losses), 1)
+        return final_logits, avg_layers_used, avg_vicarious_loss
 
 # =====================================================================
 # EXPERIMENTO DE DEMOSTRACIÓN

@@ -12,6 +12,9 @@ All notable changes to this project will be documented in this file.
   - `SwiGLUFeedForward`
   - `MultiHeadSelfAttentionRoPE`
 - New multicapa wrapper `models/neuro_model.py` for stacking architectures and projecting to vocabulary.
+- Compliance and profiling utilities:
+  - `utils/compliance.py` with R1-R5 checks and ranking eligibility gate
+  - `utils/profiler.py` with device-aware timing and FLOPs estimation via `torch.profiler`
 - New high-performance training entrypoint `experiments/train_real.py` with:
   - mixed precision (`autocast` + optional `GradScaler`)
   - AdamW + cosine warmup scheduler
@@ -30,6 +33,8 @@ All notable changes to this project will be documented in this file.
   - `models/sct.py`
   - `models/gma_moe.py`
 - Updated benchmark outputs and plotting to include richer metrics and ranking.
+- Benchmark CSV/report now include provenance columns for dataset/tokenizer (`Requested*`, `Resolved*`, `UsedFallbackDataset`) and compliance columns (`R1..R5`, `EligibleForRanking`).
+- Composite ranking now enforces compliance gate: non-eligible runs are excluded from official ranking (`CompositeScore`/`CompositeRank` vacios).
 - Updated `README.md` usage and architecture sections for NeuroModelV2 and PMT-aware training.
 - Added release hygiene files:
   - `VERSION` (current release: `0.2.0`)

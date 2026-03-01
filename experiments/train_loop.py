@@ -4,6 +4,8 @@ import torch
 import torch.nn as nn
 from torch.utils.data import DataLoader
 
+from utils.profiler import DeviceTimer
+
 
 def _infer_embed_dim(model: nn.Module) -> int:
     if hasattr(model, "attention") and hasattr(model.attention, "embed_dim"):
@@ -132,17 +134,27 @@ def train_model(
     output_head.train()
 
     optimizer = torch.optim.Adam(model.parameters(), lr=lr)
+    timer = DeviceTimer(device_t)
 
-    history = {"loss": []}
+    history = {
+        "loss": [],
+        "avg_step_ms": [],
+        "epoch_tokens": [],
+        "epoch_compute_ms": [],
+    }
 
     for _epoch in range(epochs):
         model.train()
         total_loss = 0.0
         batch_count = 0
+        total_step_ms = 0.0
+        total_tokens = 0
 
         for inputs, targets in dataloader:
             inputs = inputs.to(device_t)
             targets = targets.to(device_t)
+
+            step_start = timer.start()
 
             optimizer.zero_grad()
 
@@ -156,11 +168,18 @@ def train_model(
             loss.backward()
             optimizer.step()
 
+            step_ms = timer.stop(step_start)
+
             total_loss += float(loss.item())
             batch_count += 1
+            total_step_ms += step_ms
+            total_tokens += int(targets.numel())
 
         epoch_loss = total_loss / max(batch_count, 1)
         history["loss"].append(epoch_loss)
+        history["avg_step_ms"].append(total_step_ms / max(batch_count, 1))
+        history["epoch_tokens"].append(total_tokens)
+        history["epoch_compute_ms"].append(total_step_ms)
 
         if model.__class__.__name__ == "SCT_Layer" and hasattr(model, "sleep_cycle"):
             model.sleep_cycle()

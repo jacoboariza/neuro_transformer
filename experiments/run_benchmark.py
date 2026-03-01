@@ -1,4 +1,3 @@
-import time
 from pathlib import Path
 import re
 import sys
@@ -20,13 +19,15 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
-from data.synthetic_data import create_synthetic_dataloader
+from data.real_data import create_real_dataloaders
 from experiments.train_loop import train_model
 from models.base_transformer import StandardTransformerLayer
 from models.dca import DCA_Layer
 from models.gma_moe import GMA_MoE_Layer
 from models.mopn import MOPN_Layer
 from models.sct import SCT_Layer
+from utils.compliance import CANONICAL_DATASET, CANONICAL_TOKENIZER, build_compliance_report
+from utils.profiler import DeviceTimer, estimate_flops_torch_profiler
 
 
 REAL_CASE_TEXTS = [
@@ -129,6 +130,10 @@ def add_composite_ranking(results_df: pd.DataFrame) -> pd.DataFrame:
         ],
     )
     ranked["CompositeScore"] = composite_score
+
+    if "EligibleForRanking" in ranked.columns:
+        ineligible = ~ranked["EligibleForRanking"].fillna(False).astype(bool)
+        ranked.loc[ineligible, "CompositeScore"] = float("nan")
 
     rank_series = ranked["CompositeScore"].rank(method="dense", ascending=False)
     rank_series[ranked["CompositeScore"].isna()] = pd.NA
@@ -259,18 +264,21 @@ def evaluate_custom_model_on_real_cases(
 
     device_t = torch.device(device)
     criterion = nn.CrossEntropyLoss()
+    timer = DeviceTimer(device_t)
 
     total_loss = 0.0
     total_correct = 0
     total_tokens = 0
     batch_count = 0
+    total_eval_ms = 0.0
 
     model.eval()
-    start = time.time()
     with torch.no_grad():
         for inputs, targets in dataloader:
             inputs = inputs.to(device_t)
             targets = targets.to(device_t)
+
+            eval_start = timer.start()
 
             hidden = model(model.token_embedding(inputs))
             logits = model.output_head(hidden)
@@ -282,8 +290,9 @@ def evaluate_custom_model_on_real_cases(
             total_correct += int((predictions == targets).sum().item())
             total_tokens += int(targets.numel())
             batch_count += 1
+            total_eval_ms += timer.stop(eval_start)
 
-    elapsed = time.time() - start
+    elapsed = total_eval_ms / 1000.0
     return {
         "RealCaseLoss": safe_div(total_loss, max(batch_count, 1)),
         "RealCaseAccuracy": safe_div(total_correct, max(total_tokens, 1)),
@@ -298,18 +307,21 @@ def evaluate_reasoner_on_real_cases(
 ) -> Dict[str, float]:
     device_t = torch.device(device)
     criterion = nn.CrossEntropyLoss()
+    timer = DeviceTimer(device_t)
 
     total_loss = 0.0
     total_correct = 0
     total_tokens = 0
     batch_count = 0
+    total_eval_ms = 0.0
 
     model.eval()
-    start = time.time()
     with torch.no_grad():
         for inputs, targets in dataloader:
             inputs = inputs.to(device_t)
             targets = targets.to(device_t)
+
+            eval_start = timer.start()
 
             outputs = model(input_ids=inputs)
             logits = outputs.logits
@@ -321,8 +333,9 @@ def evaluate_reasoner_on_real_cases(
             total_correct += int((predictions == targets).sum().item())
             total_tokens += int(targets.numel())
             batch_count += 1
+            total_eval_ms += timer.stop(eval_start)
 
-    elapsed = time.time() - start
+    elapsed = total_eval_ms / 1000.0
     return {
         "RealCaseLoss": safe_div(total_loss, max(batch_count, 1)),
         "RealCaseAccuracy": safe_div(total_correct, max(total_tokens, 1)),
@@ -360,16 +373,26 @@ def train_reasoner_model(
     device_t = torch.device(device)
     criterion = nn.CrossEntropyLoss()
     optimizer = torch.optim.Adam(model.parameters(), lr=lr)
-    history = {"loss": []}
+    timer = DeviceTimer(device_t)
+    history = {
+        "loss": [],
+        "avg_step_ms": [],
+        "epoch_tokens": [],
+        "epoch_compute_ms": [],
+    }
 
     for _ in range(epochs):
         model.train()
         total_loss = 0.0
         batch_count = 0
+        total_step_ms = 0.0
+        total_tokens = 0
 
         for inputs, targets in dataloader:
             inputs = inputs.to(device_t)
             targets = targets.to(device_t)
+
+            step_start = timer.start()
 
             optimizer.zero_grad()
             outputs = model(input_ids=inputs)
@@ -379,27 +402,43 @@ def train_reasoner_model(
             loss.backward()
             optimizer.step()
 
+            step_ms = timer.stop(step_start)
+
             total_loss += float(loss.item())
             batch_count += 1
+            total_step_ms += step_ms
+            total_tokens += int(targets.numel())
 
         history["loss"].append(total_loss / max(batch_count, 1))
+        history["avg_step_ms"].append(total_step_ms / max(batch_count, 1))
+        history["epoch_tokens"].append(total_tokens)
+        history["epoch_compute_ms"].append(total_step_ms)
 
     return history
 
 
 def benchmark_local_reasoner(
     dataloader,
+    validation_dataloader,
     epochs: int,
     lr: float,
     device: str,
     train_tokens_per_epoch: int,
+    requested_dataset_name: str,
+    requested_dataset_config: Optional[str],
+    resolved_dataset_name: str,
+    resolved_dataset_config: Optional[str],
+    requested_tokenizer_name: str,
+    resolved_tokenizer_name: str,
+    used_fallback_dataset: bool,
     evaluate_real_cases: bool = True,
-    real_case_seq_len: int = 48,
-    real_case_batch_size: int = 8,
     model_name: str = "HuggingFaceTB/SmolLM-135M",
 ) -> Optional[dict]:
+    device_t = torch.device(device)
+    profiling_backend = "cuda_event" if device_t.type == "cuda" else "perf_counter"
+
     try:
-        tokenizer, reasoner = load_local_reasoner(model_name=model_name, device=device)
+        _tokenizer, reasoner = load_local_reasoner(model_name=model_name, device=device)
     except Exception as exc:
         print(f"[SmolLM] No se pudo cargar {model_name}: {exc}")
         return {
@@ -410,13 +449,26 @@ def benchmark_local_reasoner(
             "TrainTokens": float("nan"),
             "TrainTokensPerSecond": float("nan"),
             "SecondsPerMParam": float("nan"),
+            "TrainFLOPs": float("nan"),
             "RealCaseLoss": float("nan"),
             "RealCaseAccuracy": float("nan"),
             "RealCaseEvalSeconds": float("nan"),
+            "R1_RealData": False,
+            "R2_SparseDCA": False,
+            "R3_TokenMaskingPMT": False,
+            "R4_VLMDetach": False,
+            "R5_PreciseProfiling": False,
+            "EligibleForRanking": False,
+            "RequestedDatasetName": requested_dataset_name,
+            "RequestedDatasetConfig": requested_dataset_config,
+            "ResolvedDatasetName": resolved_dataset_name,
+            "ResolvedDatasetConfig": resolved_dataset_config,
+            "RequestedTokenizerName": requested_tokenizer_name,
+            "ResolvedTokenizerName": resolved_tokenizer_name,
+            "UsedFallbackDataset": used_fallback_dataset,
             "Status": f"load_error: {exc}",
         }
 
-    start_time = time.time()
     history = train_reasoner_model(
         model=reasoner,
         dataloader=dataloader,
@@ -424,10 +476,35 @@ def benchmark_local_reasoner(
         lr=lr,
         device=device,
     )
-    elapsed_seconds = time.time() - start_time
+
+    elapsed_seconds = sum(history.get("epoch_compute_ms", [])) / 1000.0
+    if elapsed_seconds <= 0:
+        elapsed_seconds = float("nan")
+
     trainable_params = count_trainable_parameters(reasoner)
-    final_loss = float(history["loss"][-1]) if history["loss"] else float("nan")
-    train_tokens_total = int(train_tokens_per_epoch * epochs)
+    train_tokens_total = int(sum(history.get("epoch_tokens", [])))
+    if train_tokens_total <= 0:
+        train_tokens_total = int(train_tokens_per_epoch * epochs)
+
+    validation_metrics = evaluate_reasoner_on_real_cases(reasoner, validation_dataloader, device)
+    final_loss = float(validation_metrics["RealCaseLoss"])
+
+    sample_inputs, _ = next(iter(validation_dataloader))
+    sample_inputs = sample_inputs.to(device_t)
+
+    train_flops = estimate_flops_torch_profiler(
+        lambda: reasoner(input_ids=sample_inputs),
+        device=device_t,
+    )
+
+    compliance = build_compliance_report(
+        model_name="SmolLM-135M",
+        model=reasoner,
+        dataset_name=resolved_dataset_name,
+        tokenizer_name=resolved_tokenizer_name,
+        device=device_t,
+        profiling_backend=profiling_backend,
+    )
 
     row = {
         "Model": "SmolLM-135M",
@@ -437,20 +514,20 @@ def benchmark_local_reasoner(
         "TrainTokens": train_tokens_total,
         "TrainTokensPerSecond": safe_div(train_tokens_total, elapsed_seconds),
         "SecondsPerMParam": safe_div(elapsed_seconds, trainable_params / 1_000_000),
-        "RealCaseLoss": float("nan"),
-        "RealCaseAccuracy": float("nan"),
-        "RealCaseEvalSeconds": float("nan"),
+        "TrainFLOPs": train_flops,
+        "RealCaseLoss": validation_metrics["RealCaseLoss"],
+        "RealCaseAccuracy": validation_metrics["RealCaseAccuracy"],
+        "RealCaseEvalSeconds": validation_metrics["RealCaseEvalSeconds"],
+        "RequestedDatasetName": requested_dataset_name,
+        "RequestedDatasetConfig": requested_dataset_config,
+        "ResolvedDatasetName": resolved_dataset_name,
+        "ResolvedDatasetConfig": resolved_dataset_config,
+        "RequestedTokenizerName": requested_tokenizer_name,
+        "ResolvedTokenizerName": resolved_tokenizer_name,
+        "UsedFallbackDataset": used_fallback_dataset,
         "Status": "ok",
     }
-
-    if evaluate_real_cases:
-        reasoner_real_case_dataloader = build_reasoner_real_case_dataloader(
-            tokenizer=tokenizer,
-            texts=REAL_CASE_TEXTS,
-            seq_len=real_case_seq_len,
-            batch_size=real_case_batch_size,
-        )
-        row.update(evaluate_reasoner_on_real_cases(reasoner, reasoner_real_case_dataloader, device))
+    row.update(compliance.to_dict())
 
     print(
         f"[SmolLM-135M] final_loss={final_loss:.6f} "
@@ -480,84 +557,140 @@ def run_benchmark(
     epochs: int = 6,
     lr: float = 1e-3,
     batch_size: int = 24,
-    num_samples: int = 1024,
+    num_samples: int = 8_000,
     seq_len: int = 96,
-    vocab_size: int = 1_000,
     embed_dim: int = 64,
-    complexity: str = "hard",
-    noise_prob: float = 0.12,
-    copy_prob: float = 0.55,
-    regime_switch_prob: float = 0.25,
+    dataset_name: str = CANONICAL_DATASET,
+    dataset_config: str = "sample-10BT",
+    dataset_split: str = "train",
+    tokenizer_name: str = CANONICAL_TOKENIZER,
+    val_split: float = 0.05,
+    num_proc: Optional[int] = None,
+    num_workers: int = 0,
     evaluate_real_cases: bool = True,
-    real_case_seq_len: int = 48,
-    real_case_batch_size: int = 8,
     hf_reasoner_model_name: str = "HuggingFaceTB/SmolLM-135M",
     output_csv: str = "benchmark_results.csv",
 ) -> pd.DataFrame:
     device = "cuda" if torch.cuda.is_available() else "cpu"
-    dataloader = create_synthetic_dataloader(
-        batch_size=batch_size,
+    device_t = torch.device(device)
+    profiling_backend = "cuda_event" if device_t.type == "cuda" else "perf_counter"
+
+    train_loader, val_loader, tokenizer = create_real_dataloaders(
+        dataset_name=dataset_name,
+        dataset_config=dataset_config,
+        split=dataset_split,
+        tokenizer_name=tokenizer_name,
         num_samples=num_samples,
         seq_len=seq_len,
-        vocab_size=vocab_size,
-        complexity=complexity,
-        noise_prob=noise_prob,
-        copy_prob=copy_prob,
-        regime_switch_prob=regime_switch_prob,
-        shuffle=True,
+        batch_size=batch_size,
+        val_split=val_split,
+        num_proc=num_proc,
+        num_workers=num_workers,
+        pin_memory=device_t.type == "cuda",
+        drop_last_train=True,
         seed=42,
     )
-    train_tokens_per_epoch = count_tokens_per_epoch(dataloader)
+
+    resolved_dataset_name = getattr(train_loader, "_resolved_dataset_name", dataset_name)
+    resolved_dataset_config = getattr(train_loader, "_resolved_dataset_config", dataset_config)
+    requested_tokenizer_name = getattr(train_loader, "_requested_tokenizer_name", tokenizer_name)
+    resolved_tokenizer_name = getattr(train_loader, "_resolved_tokenizer_name", tokenizer_name)
+    used_fallback_dataset = bool(getattr(train_loader, "_used_fallback_dataset", False))
+    if used_fallback_dataset:
+        print(
+            "[WARN] Se uso fallback de dataset real: "
+            f"requested={dataset_name}({dataset_config}) resolved={resolved_dataset_name}({resolved_dataset_config})"
+        )
+    if resolved_dataset_name != CANONICAL_DATASET:
+        print(
+            "[WARN] Dataset resuelto no canonico para ranking oficial: "
+            f"resolved={resolved_dataset_name} expected={CANONICAL_DATASET}"
+        )
+    if resolved_tokenizer_name != CANONICAL_TOKENIZER:
+        print(
+            "[WARN] Tokenizer resuelto no canonico para ranking oficial: "
+            f"resolved={resolved_tokenizer_name} expected={CANONICAL_TOKENIZER}"
+        )
+
+    train_tokens_per_epoch = count_tokens_per_epoch(train_loader)
     train_tokens_total = int(train_tokens_per_epoch * epochs)
 
-    real_case_dataloader = None
-    if evaluate_real_cases:
-        real_case_dataloader = build_real_case_dataloader(
-            texts=REAL_CASE_TEXTS,
-            seq_len=real_case_seq_len,
-            batch_size=real_case_batch_size,
-            vocab_size=vocab_size,
-        )
+    eval_loader = val_loader if evaluate_real_cases else None
 
     models = build_models(embed_dim=embed_dim)
 
     results = []
 
     for model_name, model in models.items():
-        start_time = time.time()
         history = train_model(
             model=model,
-            dataloader=dataloader,
+            dataloader=train_loader,
             epochs=epochs,
             lr=lr,
             device=device,
         )
-        elapsed_seconds = time.time() - start_time
+
+        elapsed_seconds = sum(history.get("epoch_compute_ms", [])) / 1000.0
+        if elapsed_seconds <= 0:
+            elapsed_seconds = float("nan")
+
+        train_tokens_model = int(sum(history.get("epoch_tokens", [])))
+        if train_tokens_model <= 0:
+            train_tokens_model = train_tokens_total
 
         trainable_params = count_trainable_parameters(model)
-        final_loss = float(history["loss"][-1]) if history["loss"] else float("nan")
 
         row = {
             "Model": model_name,
-            "FinalLoss": final_loss,
+            "FinalLoss": float("nan"),
             "TrainableParams": trainable_params,
             "TrainTimeSeconds": elapsed_seconds,
-            "TrainTokens": train_tokens_total,
-            "TrainTokensPerSecond": safe_div(train_tokens_total, elapsed_seconds),
+            "TrainTokens": train_tokens_model,
+            "TrainTokensPerSecond": safe_div(train_tokens_model, elapsed_seconds),
             "SecondsPerMParam": safe_div(elapsed_seconds, trainable_params / 1_000_000),
+            "TrainFLOPs": float("nan"),
             "RealCaseLoss": float("nan"),
             "RealCaseAccuracy": float("nan"),
             "RealCaseEvalSeconds": float("nan"),
+            "RequestedDatasetName": dataset_name,
+            "RequestedDatasetConfig": dataset_config,
+            "ResolvedDatasetName": resolved_dataset_name,
+            "ResolvedDatasetConfig": resolved_dataset_config,
+            "RequestedTokenizerName": requested_tokenizer_name,
+            "ResolvedTokenizerName": resolved_tokenizer_name,
+            "UsedFallbackDataset": used_fallback_dataset,
             "Status": "ok",
         }
 
-        if evaluate_real_cases and real_case_dataloader is not None:
-            row.update(evaluate_custom_model_on_real_cases(model, real_case_dataloader, device))
+        sample_inputs, _ = next(iter(val_loader))
+        sample_inputs = sample_inputs.to(device_t)
+
+        row["TrainFLOPs"] = estimate_flops_torch_profiler(
+            lambda: model.output_head(model(model.token_embedding(sample_inputs))),
+            device=device_t,
+        )
+
+        if evaluate_real_cases and eval_loader is not None:
+            eval_metrics = evaluate_custom_model_on_real_cases(model, eval_loader, device)
+            row.update(eval_metrics)
+            row["FinalLoss"] = float(eval_metrics["RealCaseLoss"])
+        else:
+            row["FinalLoss"] = float(history["loss"][-1]) if history["loss"] else float("nan")
+
+        compliance = build_compliance_report(
+            model_name=model_name,
+            model=model,
+            dataset_name=resolved_dataset_name,
+            tokenizer_name=resolved_tokenizer_name,
+            device=device_t,
+            profiling_backend=profiling_backend,
+        )
+        row.update(compliance.to_dict())
 
         results.append(row)
 
         print(
-            f"[{model_name}] final_loss={final_loss:.6f} "
+            f"[{model_name}] final_loss={row['FinalLoss']:.6f} "
             f"params={trainable_params:,} time={elapsed_seconds:.2f}s "
             f"tok/s={row['TrainTokensPerSecond']:.2f}"
         )
@@ -568,14 +701,20 @@ def run_benchmark(
             )
 
     reasoner_result = benchmark_local_reasoner(
-        dataloader=dataloader,
+        dataloader=train_loader,
+        validation_dataloader=val_loader,
         epochs=epochs,
         lr=lr,
         device=device,
         train_tokens_per_epoch=train_tokens_per_epoch,
+        requested_dataset_name=dataset_name,
+        requested_dataset_config=dataset_config,
+        resolved_dataset_name=resolved_dataset_name,
+        resolved_dataset_config=resolved_dataset_config,
+        requested_tokenizer_name=requested_tokenizer_name,
+        resolved_tokenizer_name=resolved_tokenizer_name,
+        used_fallback_dataset=used_fallback_dataset,
         evaluate_real_cases=evaluate_real_cases,
-        real_case_seq_len=real_case_seq_len,
-        real_case_batch_size=real_case_batch_size,
         model_name=hf_reasoner_model_name,
     )
     if reasoner_result is not None:
@@ -598,10 +737,15 @@ def run_benchmark(
     report_columns = [
         "CompositeRank",
         "Model",
+        "EligibleForRanking",
+        "ResolvedDatasetName",
+        "ResolvedTokenizerName",
+        "UsedFallbackDataset",
         "CompositeScore",
         "QualityScore",
         "EfficiencyScore",
         "FinalLoss",
+        "TrainFLOPs",
         "RealCaseAccuracy",
         "TrainTokensPerSecond",
         "TrainTimeSeconds",

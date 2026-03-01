@@ -14,6 +14,8 @@ if str(PROJECT_ROOT) not in sys.path:
 
 from data.real_data import create_real_dataloaders
 from neuro_architectures_v2 import NeuroModelV2
+from utils.compliance import CANONICAL_DATASET, CANONICAL_TOKENIZER, build_compliance_report
+from utils.profiler import DeviceTimer
 
 
 class NeuroModelV2ForLM(torch.nn.Module):
@@ -157,6 +159,7 @@ def training_step(
     scheduler,
     scaler,
     device: torch.device,
+    timer: DeviceTimer,
     amp_dtype: torch.dtype,
     use_autocast: bool,
     grad_clip: float,
@@ -167,6 +170,8 @@ def training_step(
     inputs, targets = batch
     inputs = inputs.to(device, non_blocking=True)
     targets = targets.to(device, non_blocking=True)
+
+    step_start = timer.start()
 
     optimizer.zero_grad(set_to_none=True)
 
@@ -200,6 +205,7 @@ def training_step(
         optimizer.step()
 
     scheduler.step()
+    step_ms = timer.stop(step_start)
 
     token_count = int(targets.numel())
     return {
@@ -210,6 +216,7 @@ def training_step(
         "depth_ratio": float(depth_ratio),
         "early_exit_bonus": float(early_exit_bonus),
         "pmt_reward": float(pmt_reward),
+        "step_ms": float(step_ms),
     }
 
 
@@ -217,6 +224,7 @@ def evaluate(
     model: torch.nn.Module,
     dataloader,
     device: torch.device,
+    timer: DeviceTimer,
     amp_dtype: torch.dtype,
     use_autocast: bool,
     exit_threshold: float,
@@ -231,12 +239,15 @@ def evaluate(
     depth_ratio_sum = 0.0
     early_exit_bonus_sum = 0.0
     pmt_reward_sum = 0.0
+    eval_ms_sum = 0.0
     batch_count = 0
 
     with torch.no_grad():
         for inputs, targets in dataloader:
             inputs = inputs.to(device, non_blocking=True)
             targets = targets.to(device, non_blocking=True)
+
+            eval_start = timer.start()
 
             with torch.autocast(
                 device_type=device.type,
@@ -262,6 +273,7 @@ def evaluate(
             depth_ratio_sum += float(depth_ratio)
             early_exit_bonus_sum += float(early_exit_bonus)
             pmt_reward_sum += float(pmt_reward)
+            eval_ms_sum += float(timer.stop(eval_start))
             batch_count += 1
 
     return {
@@ -271,6 +283,7 @@ def evaluate(
         "avg_depth_ratio": depth_ratio_sum / max(batch_count, 1),
         "avg_early_exit_bonus": early_exit_bonus_sum / max(batch_count, 1),
         "avg_pmt_reward": pmt_reward_sum / max(batch_count, 1),
+        "compute_seconds": eval_ms_sum / 1000.0,
     }
 
 
@@ -297,11 +310,44 @@ def train(args: argparse.Namespace) -> None:
         drop_last_train=True,
     )
 
+    resolved_dataset_name = getattr(train_loader, "_resolved_dataset_name", args.dataset_name)
+    resolved_dataset_config = getattr(train_loader, "_resolved_dataset_config", args.dataset_config)
+    requested_tokenizer_name = getattr(train_loader, "_requested_tokenizer_name", args.tokenizer_name)
+    resolved_tokenizer_name = getattr(train_loader, "_resolved_tokenizer_name", args.tokenizer_name)
+    used_fallback_dataset = bool(getattr(train_loader, "_used_fallback_dataset", False))
+    if used_fallback_dataset:
+        print(
+            "[WARN] Se uso fallback de dataset real: "
+            f"requested={args.dataset_name}({args.dataset_config}) "
+            f"resolved={resolved_dataset_name}({resolved_dataset_config})"
+        )
+    if resolved_dataset_name != CANONICAL_DATASET:
+        print(
+            "[WARN] Dataset resuelto no canonico para cumplimiento R1: "
+            f"resolved={resolved_dataset_name} expected={CANONICAL_DATASET}"
+        )
+    if resolved_tokenizer_name != CANONICAL_TOKENIZER:
+        print(
+            "[WARN] Tokenizer resuelto no canonico para cumplimiento R1: "
+            f"resolved={resolved_tokenizer_name} expected={CANONICAL_TOKENIZER}"
+        )
+
     model = NeuroModelV2ForLM(
         vocab_size=len(tokenizer),
         embed_dim=args.embed_dim,
         num_layers=args.num_layers,
     ).to(device)
+
+    profiling_backend = "cuda_event" if device.type == "cuda" else "perf_counter"
+    compliance_report = build_compliance_report(
+        model_name="NeuroModelV2",
+        model=model.core,
+        dataset_name=resolved_dataset_name,
+        tokenizer_name=resolved_tokenizer_name,
+        device=device,
+        profiling_backend=profiling_backend,
+    )
+    print(f"Compliance R1-R5: {compliance_report.to_dict()}")
 
     optimizer = build_optimizer(model=model, lr=args.lr, weight_decay=args.weight_decay)
 
@@ -329,6 +375,8 @@ def train(args: argparse.Namespace) -> None:
     if device.type == "cuda" and amp_dtype == torch.float16:
         scaler = torch.cuda.amp.GradScaler(enabled=True)
 
+    timer = DeviceTimer(device)
+
     best_val_loss = float("inf")
     output_dir = Path(args.output_dir)
 
@@ -349,6 +397,7 @@ def train(args: argparse.Namespace) -> None:
         train_depth_ratio_sum = 0.0
         train_early_exit_bonus_sum = 0.0
         train_pmt_reward_sum = 0.0
+        train_compute_ms_sum = 0.0
         train_batch_count = 0
 
         for batch in train_loader:
@@ -359,6 +408,7 @@ def train(args: argparse.Namespace) -> None:
                 scheduler=scheduler,
                 scaler=scaler,
                 device=device,
+                timer=timer,
                 amp_dtype=amp_dtype,
                 use_autocast=use_autocast,
                 grad_clip=args.grad_clip,
@@ -373,6 +423,7 @@ def train(args: argparse.Namespace) -> None:
             train_depth_ratio_sum += step_stats["depth_ratio"]
             train_early_exit_bonus_sum += step_stats["early_exit_bonus"]
             train_pmt_reward_sum += step_stats["pmt_reward"]
+            train_compute_ms_sum += step_stats["step_ms"]
             train_batch_count += 1
 
         train_loss = train_total_loss_sum / max(train_tokens, 1)
@@ -386,6 +437,7 @@ def train(args: argparse.Namespace) -> None:
             model=model,
             dataloader=val_loader,
             device=device,
+            timer=timer,
             amp_dtype=amp_dtype,
             use_autocast=use_autocast,
             exit_threshold=args.pmt_exit_threshold,
@@ -396,6 +448,7 @@ def train(args: argparse.Namespace) -> None:
         val_prediction_loss = val_metrics["prediction_loss"]
 
         epoch_seconds = time.time() - epoch_start
+        train_compute_seconds = train_compute_ms_sum / 1000.0
         train_ppl = math.exp(min(train_prediction_loss, 20.0))
         val_ppl = math.exp(min(val_prediction_loss, 20.0))
 
@@ -407,7 +460,9 @@ def train(args: argparse.Namespace) -> None:
             f"train_bonus={train_avg_early_exit_bonus:.4f} val_bonus={val_metrics['avg_early_exit_bonus']:.4f} "
             f"train_pmt={train_avg_pmt_reward:.4f} val_pmt={val_metrics['avg_pmt_reward']:.4f} "
             f"train_depth={train_avg_depth_ratio:.4f} val_depth={val_metrics['avg_depth_ratio']:.4f} "
-            f"train_ppl={train_ppl:.2f} val_ppl={val_ppl:.2f} time={epoch_seconds:.1f}s"
+            f"train_ppl={train_ppl:.2f} val_ppl={val_ppl:.2f} "
+            f"compute_train={train_compute_seconds:.2f}s compute_val={val_metrics['compute_seconds']:.2f}s "
+            f"time_wall={epoch_seconds:.1f}s"
         )
 
         if val_loss < best_val_loss:
@@ -423,6 +478,11 @@ def train(args: argparse.Namespace) -> None:
                 config={
                     "dataset_name": args.dataset_name,
                     "dataset_config": args.dataset_config,
+                    "resolved_dataset_name": resolved_dataset_name,
+                    "resolved_dataset_config": resolved_dataset_config,
+                    "requested_tokenizer_name": requested_tokenizer_name,
+                    "resolved_tokenizer_name": resolved_tokenizer_name,
+                    "used_fallback_dataset": used_fallback_dataset,
                     "dataset_split": args.dataset_split,
                     "tokenizer_name": args.tokenizer_name,
                     "seq_len": args.seq_len,
@@ -432,6 +492,8 @@ def train(args: argparse.Namespace) -> None:
                     "pmt_exit_threshold": args.pmt_exit_threshold,
                     "pmt_reward_weight": args.pmt_reward_weight,
                     "vicarious_loss_weight": args.vicarious_loss_weight,
+                    "profiling_backend": profiling_backend,
+                    "compliance": compliance_report.to_dict(),
                 },
             )
             print(f"Nuevo mejor checkpoint guardado en: {ckpt_path.resolve()} | val_loss={val_loss:.4f}")
@@ -442,11 +504,11 @@ def parse_args() -> argparse.Namespace:
         description="Entrenamiento real de NeuroModelV2 con AMP + AdamW + CosineWarmup + recompensa PMT"
     )
 
-    parser.add_argument("--dataset-name", default="HuggingFaceFW/fineweb-edu")
+    parser.add_argument("--dataset-name", default=CANONICAL_DATASET)
     parser.add_argument("--dataset-config", default="sample-10BT")
     parser.add_argument("--dataset-split", default="train")
     parser.add_argument("--text-column", default=None)
-    parser.add_argument("--tokenizer-name", default="HuggingFaceTB/SmolLM-135M")
+    parser.add_argument("--tokenizer-name", default=CANONICAL_TOKENIZER)
 
     parser.add_argument("--num-samples", type=int, default=50_000)
     parser.add_argument("--seq-len", type=int, default=512)

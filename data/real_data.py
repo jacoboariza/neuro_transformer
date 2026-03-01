@@ -32,7 +32,7 @@ def load_real_dataset_subset(
     seed: int = 42,
     fallback_dataset_name: str = "wikimedia/wikipedia",
     fallback_dataset_config: Optional[str] = "20231101.es",
-):
+) -> Tuple[object, str, Optional[str]]:
     """
     Descarga un subconjunto reproducible de un dataset real de texto.
 
@@ -45,6 +45,8 @@ def load_real_dataset_subset(
         candidates.append((fallback_dataset_name, fallback_dataset_config))
 
     last_error = None
+    resolved_dataset_name = dataset_name
+    resolved_dataset_config = dataset_config
     for candidate_name, candidate_config in candidates:
         try:
             dataset = _load_dataset_split(
@@ -52,6 +54,8 @@ def load_real_dataset_subset(
                 dataset_config=candidate_config,
                 split=split,
             )
+            resolved_dataset_name = candidate_name
+            resolved_dataset_config = candidate_config
             print(f"Dataset cargado: {candidate_name} ({candidate_config})")
             break
         except Exception as exc:  # pragma: no cover - depende del entorno
@@ -63,7 +67,7 @@ def load_real_dataset_subset(
     if num_samples is not None and num_samples > 0 and len(dataset) > num_samples:
         dataset = dataset.shuffle(seed=seed).select(range(num_samples))
 
-    return dataset
+    return dataset, resolved_dataset_name, resolved_dataset_config
 
 
 def load_text_tokenizer(tokenizer_name: str = "HuggingFaceTB/SmolLM-135M"):
@@ -199,7 +203,7 @@ def create_real_dataloaders(
         raise ValueError("val_split must be in (0.0, 1.0)")
 
     tokenizer = load_text_tokenizer(tokenizer_name=tokenizer_name)
-    dataset = load_real_dataset_subset(
+    dataset, resolved_dataset_name, resolved_dataset_config = load_real_dataset_subset(
         dataset_name=dataset_name,
         dataset_config=dataset_config,
         split=split,
@@ -252,9 +256,20 @@ def create_real_dataloaders(
         drop_last=False,
     )
 
+    used_fallback = (resolved_dataset_name != dataset_name) or (resolved_dataset_config != dataset_config)
+    for loader in (train_loader, val_loader):
+        loader._requested_dataset_name = dataset_name
+        loader._requested_dataset_config = dataset_config
+        loader._resolved_dataset_name = resolved_dataset_name
+        loader._resolved_dataset_config = resolved_dataset_config
+        loader._used_fallback_dataset = used_fallback
+        loader._requested_tokenizer_name = tokenizer_name
+        loader._resolved_tokenizer_name = tokenizer_name
+
     print(
         f"Ventanas totales={total_windows} train={len(train_dataset)} val={len(val_dataset)} "
-        f"seq_len={seq_len} vocab={len(tokenizer)}"
+        f"seq_len={seq_len} vocab={len(tokenizer)} source={resolved_dataset_name} "
+        f"fallback={used_fallback}"
     )
 
     return train_loader, val_loader, tokenizer

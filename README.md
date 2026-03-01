@@ -17,7 +17,7 @@ El proyecto nace de una pregunta de investigación central: **¿podemos reducir 
 
 ### 1.2 DCA (Dynamic Connectome Architecture)
 - **Archivo:** `models/dca.py`
-- Implementa enrutamiento escaso mediante máscara estructural sobre pesos lineales.
+- Implementa enrutamiento escaso real con kernels `torch.sparse` (COO) en la ruta principal.
 - Inspiración: conectoma biológico con conectividad no densa.
 
 ### 1.3 MOPN (Multi-dimensional Orthogonal Processing Networks)
@@ -90,9 +90,13 @@ neuro_transformer/
 │  └─ train_real.py         # Entrenamiento real con AMP, AdamW, scheduler y checkpoints
 ├─ neuro_architectures_v2.py # Arquitectura experimental NeuroModelV2 + PMT/CEN/VLM
 ├─ utils/
-│  ├─ metrics.py            # (Reservado para métricas adicionales)
+│  ├─ compliance.py         # Gate de cumplimiento R1..R5 + elegibilidad de ranking
+│  ├─ profiler.py           # Timer por dispositivo + estimación FLOPs con torch.profiler
 │  └─ plots.py              # Generación de gráficos desde benchmark_results.csv
+├─ tests/
+│  └─ test_r2_r5_compliance.py # Tests de cumplimiento técnico (R2-R5 + gate R1)
 ├─ benchmark_results.csv    # Resultados tabulares exportados por el benchmark
+├─ benchmark_results_ranking.csv # Ranking compuesto con gate de compliance
 ├─ benchmark_params.png     # Gráfico de barras de parámetros entrenables
 ├─ benchmark_time.png       # Gráfico de barras de tiempos de ejecución
 └─ requirements.txt         # Dependencias del proyecto
@@ -151,7 +155,7 @@ python experiments/run_benchmark.py
 ```
 
 Este comando:
-1. Genera datos sintéticos complejos (`hard`) para next-token prediction.
+1. Carga datos reales desde `HuggingFaceFW/fineweb-edu` (fallback controlado) y tokeniza con `HuggingFaceTB/SmolLM-135M`.
 2. Entrena y compara:
    - Transformer baseline
    - DCA
@@ -159,7 +163,11 @@ Este comando:
    - SCT
    - GMA-MoE
    - SmolLM-135M (local, vía Hugging Face)
-3. Exporta resultados en CSV.
+3. Exporta resultados en CSV + ranking con columnas de compliance (`R1..R5`, `EligibleForRanking`), métricas de FLOPs y trazabilidad de origen (`RequestedDatasetName`, `ResolvedDatasetName`, `RequestedTokenizerName`, `ResolvedTokenizerName`, `UsedFallbackDataset`).
+
+Si se activa el fallback de dataset (o se usa un tokenizer distinto al canónico), el benchmark seguirá ejecutándose para diagnóstico, pero quedará marcado como no elegible para ranking oficial (`R1_RealData=False`).
+
+> Nota: Para ejecutar este benchmark oficial deben estar instaladas `datasets` y `transformers` en el entorno.
 
 ### 4.2 Entrenar modelo multicapa en datos reales
 
@@ -191,11 +199,21 @@ python utils/plots.py
 
 Tras la ejecución, se generan en la raíz del proyecto:
 - `benchmark_results.csv`
+- `benchmark_results_ranking.csv`
 - `benchmark_params.png`
 - `benchmark_time.png`
+- `benchmark_flops.png`
+- `benchmark_tokens_per_sec.png`
+- `benchmark_real_case_accuracy.png`
+- `benchmark_real_case_loss.png`
+- `benchmark_compliance.png`
+
+El ranking compuesto aplica gate de compliance: cuando `EligibleForRanking=False`, las columnas `CompositeScore` y `CompositeRank` quedan vacías para ese modelo.
 
 En entrenamiento real:
 - `checkpoints/best_model.pt`
+
+El checkpoint incluye metadata de reproducibilidad/compliance: dataset solicitado vs resuelto, tokenizer solicitado vs resuelto, backend de profiling y flags `R1..R5`.
 
 ---
 
@@ -251,8 +269,8 @@ SOFTWARE.
 
 ## 8) Contacto y autores
 
-- **Autores del paper:** _[Nombre 1]_, _[Nombre 2]_, _[Nombre 3]_
-- **Afiliación:** _[Institución / Laboratorio]_
-- **Contacto:** _[email@dominio.com]_
+- **Autores del paper:** Luis Jacobo Ariza Jiménez
+- **Afiliación:** www.jacoboariza.com
+- **Contacto:** luis.jacobo@gmail.com
 
 Si utilizas este repositorio en investigación académica, se recomienda incluir cita al trabajo final una vez publicado.

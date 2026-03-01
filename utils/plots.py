@@ -20,9 +20,11 @@ def plot_benchmark_results(
 
     params_plot_path = out_dir / "benchmark_params.png"
     time_plot_path = out_dir / "benchmark_time.png"
+    flops_plot_path = out_dir / "benchmark_flops.png"
     tokens_per_sec_plot_path = out_dir / "benchmark_tokens_per_sec.png"
     real_case_acc_plot_path = out_dir / "benchmark_real_case_accuracy.png"
     real_case_loss_plot_path = out_dir / "benchmark_real_case_loss.png"
+    compliance_plot_path = out_dir / "benchmark_compliance.png"
 
     plt.figure(figsize=(10, 5))
     plt.bar(data["Model"], data["TrainableParams"])
@@ -48,6 +50,21 @@ def plot_benchmark_results(
         "params_plot": str(params_plot_path),
         "time_plot": str(time_plot_path),
     }
+
+    if "TrainFLOPs" in data.columns:
+        flops_data = data.dropna(subset=["TrainFLOPs"])
+        if not flops_data.empty:
+            plt.figure(figsize=(10, 5))
+            plt.bar(flops_data["Model"], flops_data["TrainFLOPs"])
+            plt.title("Comparación de FLOPs de entrenamiento")
+            plt.xlabel("Modelo")
+            plt.ylabel("FLOPs")
+            plt.xticks(rotation=30, ha="right")
+            plt.tight_layout()
+            plt.savefig(flops_plot_path, dpi=150)
+            plt.close()
+            print(f"Grafico de FLOPs guardado en: {flops_plot_path.resolve()}")
+            plots["flops_plot"] = str(flops_plot_path)
 
     if "TrainTokensPerSecond" in data.columns:
         plt.figure(figsize=(10, 5))
@@ -91,6 +108,27 @@ def plot_benchmark_results(
             plt.close()
             print(f"Grafico de casos reales (loss) guardado en: {real_case_loss_plot_path.resolve()}")
             plots["real_case_loss_plot"] = str(real_case_loss_plot_path)
+
+    if "EligibleForRanking" in data.columns:
+        compliance_flags = data["EligibleForRanking"].fillna(False).astype(bool)
+        compliance_numeric = compliance_flags.astype(int)
+
+        plt.figure(figsize=(10, 5))
+        plt.bar(
+            data["Model"],
+            compliance_numeric,
+            color=["#2e7d32" if flag else "#c62828" for flag in compliance_flags],
+        )
+        plt.title("Elegibilidad de compliance R1-R5")
+        plt.xlabel("Modelo")
+        plt.ylabel("EligibleForRanking (1=si, 0=no)")
+        plt.yticks([0, 1])
+        plt.xticks(rotation=30, ha="right")
+        plt.tight_layout()
+        plt.savefig(compliance_plot_path, dpi=150)
+        plt.close()
+        print(f"Grafico de compliance guardado en: {compliance_plot_path.resolve()}")
+        plots["compliance_plot"] = str(compliance_plot_path)
 
     print(f"Grafico de parametros guardado en: {params_plot_path.resolve()}")
     print(f"Grafico de tiempo guardado en: {time_plot_path.resolve()}")
