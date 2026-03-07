@@ -2,6 +2,56 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.3.0] - 2026-03-04
+
+### Added
+- **Scaling Laws Benchmark** in `experiments/run_benchmark.py`:
+  - Nested loops over model sizes (Micro 6M → Smol 135M) and architectures
+  - Dynamic micro-batch sizing with OOM prevention for RTX 5070 Ti
+  - Gradient accumulation support with AdamW optimizer
+  - SizeCategory column and enhanced model naming (e.g., "SCT_Mini(15M)")
+  - StackedArchitectureModel wrapper for multi-layer scaling
+- **Crossover Analysis Utility** in `utils/crossover_analysis.py`:
+  - Detects first size achieving target loss (default 4.08)
+  - Filters bio-inspired architectures by default
+  - CSV export with crossover points and loss gaps
+  - CLI interface for custom analysis
+- **Comprehensive Unit Tests**:
+  - `tests/test_scaling_benchmark.py`: batch planning, model stacking, gradient accumulation
+  - `tests/test_crossover_analysis.py`: crossover detection and CSV parsing
+- **Updated Documentation**:
+  - Scaling laws benchmark flow and OOM strategy in README
+  - Crossover analysis usage examples
+  - Enhanced benchmark CSV columns documentation
+- **FlyWire Connectome Utility** in `utils/brain_downloader.py`:
+  - Example script to query FlyWire synapses (`synapses_nt_v120`)
+  - Builds a directed weighted neural graph and exports adjacency matrix
+  - Notes authentication requirement through CAVEclient token flow
+
+### Changed
+- **Training Loop** (`experiments/train_loop.py`):
+  - Switched to AdamW optimizer
+  - Added configurable gradient accumulation
+  - Fixed embed_dim inference for stacked models
+  - SCT sleep_cycle logging only when executed
+- **Benchmark Results**:
+  - New columns: SizeCategory, MicroBatchSize, GradAccumSteps, EffectiveBatchSize
+  - Enhanced model naming with size information
+  - Improved OOM error handling and retry logging
+- **Model Factories**:
+  - Refactored to support dynamic parameter injection (embed_dim, num_layers, num_heads)
+  - Consistent stacking behavior across all architectures
+- **NeuroModelV2 CEN stability** (`neuro_architectures_v2.py`):
+  - Fixed counterfactual branch selection to avoid `NoneType` failures when coherence score comparisons produce invalid values
+
+### Security / Compliance
+- No hardcoded credentials introduced.
+- HF_TOKEN remains optional and externally provided.
+
+### Notes
+- No breaking API changes; this is a **minor** feature release.
+- Backward compatibility preserved for existing benchmark scripts.
+
 ## [0.2.0] - 2026-02-28
 
 ### Added

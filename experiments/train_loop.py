@@ -8,6 +8,10 @@ from utils.profiler import DeviceTimer
 
 
 def _infer_embed_dim(model: nn.Module) -> int:
+    explicit_embed_dim = getattr(model, "embed_dim", None)
+    if isinstance(explicit_embed_dim, int) and explicit_embed_dim > 0:
+        return explicit_embed_dim
+
     if hasattr(model, "attention") and hasattr(model.attention, "embed_dim"):
         return int(model.attention.embed_dim)
 
@@ -75,21 +79,25 @@ def train_model(
     epochs: int,
     lr: float,
     device: str,
+    grad_accum_steps: int = 1,
 ) -> Dict[str, list]:
     """
     Entrena un modelo autoregresivo con datos (inputs, targets) para next-token prediction.
 
-    - Optimizador: Adam
+    - Optimizador: AdamW
     - Loss: CrossEntropyLoss
     - Si el modelo devuelve (batch, seq, embed), se proyecta a vocabulario con una
       capa lineal final dinámica (output_head) cuando no existe.
-    - Para SCT_Layer se ejecuta sleep_cycle() al final de cada epoch.
+    - Soporta acumulación de gradientes (grad_accum_steps) para reducir uso de VRAM.
+    - Si el modelo implementa sleep_cycle(), se ejecuta al final de cada epoch.
     """
 
     if epochs <= 0:
         raise ValueError("epochs must be > 0")
     if lr <= 0:
         raise ValueError("lr must be > 0")
+    if grad_accum_steps <= 0:
+        raise ValueError("grad_accum_steps must be > 0")
 
     device_t = torch.device(device)
     model = model.to(device_t)
@@ -133,7 +141,7 @@ def train_model(
     output_head = _ensure_output_head(model, hidden_dim, vocab_size, device_t)
     output_head.train()
 
-    optimizer = torch.optim.Adam(model.parameters(), lr=lr)
+    optimizer = torch.optim.AdamW(model.parameters(), lr=lr)
     timer = DeviceTimer(device_t)
 
     history = {
@@ -147,11 +155,14 @@ def train_model(
 
     for epoch in range(epochs):
         model.train()
+        optimizer.zero_grad(set_to_none=True)
+
         # Acumuladores en GPU
         total_loss_tensor = torch.tensor(0.0, device=device_t)
         
         batch_count = 0
         total_tokens = 0
+        accumulation_counter = 0
 
         # Timer de epoch completo para medir throughput real (incluye carga de datos asíncrona oculta por pipelining)
         # Para medir solo cómputo GPU estricto, idealmente usaríamos eventos, pero para "train time" el usuario espera wall-clock o GPU-active time.
@@ -164,8 +175,6 @@ def train_model(
             inputs = inputs.to(device_t, non_blocking=True)
             targets = targets.to(device_t, non_blocking=True)
 
-            optimizer.zero_grad()
-
             if needs_embedding:
                 hidden = model(model.token_embedding(inputs))
             else:
@@ -173,8 +182,13 @@ def train_model(
 
             logits = output_head(hidden)
             loss = criterion(logits.reshape(-1, vocab_size), targets.reshape(-1))
-            loss.backward()
-            optimizer.step()
+            (loss / grad_accum_steps).backward()
+            accumulation_counter += 1
+
+            if accumulation_counter >= grad_accum_steps:
+                optimizer.step()
+                optimizer.zero_grad(set_to_none=True)
+                accumulation_counter = 0
 
             # Acumulación asíncrona
             total_loss_tensor += loss
@@ -189,6 +203,10 @@ def train_model(
                     print(f"\r  Batch {batch_idx + 1}/{total_batches} ({percent:.1f}%) - Loss: {loss.item():.4f}", end="", flush=True)
                 else:
                     print(f"\r  Batch {batch_idx + 1} - Loss: {loss.item():.4f}", end="", flush=True)
+
+        if accumulation_counter > 0:
+            optimizer.step()
+            optimizer.zero_grad(set_to_none=True)
         
         print() # Nueva línea al terminar el epoch
         
@@ -205,8 +223,9 @@ def train_model(
         
         print(f"Epoch {epoch + 1} completado: Loss media={epoch_loss:.4f}, Tiempo={epoch_ms/1000:.2f}s")
 
-        if model.__class__.__name__ == "SCT_Layer" and hasattr(model, "sleep_cycle"):
-            model.sleep_cycle()
-            print("  Ciclo de sueño SCT ejecutado.")
+        if hasattr(model, "sleep_cycle"):
+            sleep_cycle_result = model.sleep_cycle()
+            if sleep_cycle_result is not False:
+                print("  Ciclo de sueño SCT ejecutado.")
 
     return history

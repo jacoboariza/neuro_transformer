@@ -1,8 +1,9 @@
 from pathlib import Path
+import math
 import re
 import sys
 from collections import Counter
-from typing import Dict, List, Optional, Tuple
+from typing import Callable, Dict, List, Optional, Tuple
 
 import pandas as pd
 import torch
@@ -16,6 +17,159 @@ except ImportError:  # pragma: no cover - entorno sin transformers
     AutoTokenizer = None
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
+
+
+SCALING_CONFIGS: Dict[str, Dict[str, int]] = {
+    "Micro (6M)": {"embed_dim": 256, "num_layers": 6, "num_heads": 8},
+    "Mini (15M)": {"embed_dim": 384, "num_layers": 8, "num_heads": 12},
+    "Small (35M)": {"embed_dim": 512, "num_layers": 10, "num_heads": 16},
+    "Base (85M)": {"embed_dim": 768, "num_layers": 12, "num_heads": 12},
+    "Smol (135M)": {"embed_dim": 896, "num_layers": 14, "num_heads": 14},
+}
+
+# Límite de micro-batch por tamaño para prevenir OOM en entrenamientos grandes.
+SCALING_MICRO_BATCH_LIMITS: Dict[str, int] = {
+    "Micro (6M)": 24,
+    "Mini (15M)": 16,
+    "Small (35M)": 8,
+    "Base (85M)": 4,
+    "Smol (135M)": 2,
+}
+
+DATASET_METADATA_ATTRIBUTES = (
+    "_requested_dataset_name",
+    "_requested_dataset_config",
+    "_resolved_dataset_name",
+    "_resolved_dataset_config",
+    "_used_fallback_dataset",
+    "_requested_tokenizer_name",
+    "_resolved_tokenizer_name",
+)
+
+
+def _size_suffix(size_category: str) -> str:
+    return size_category.replace(" ", "")
+
+
+def is_cuda_oom_error(exc: BaseException) -> bool:
+    message = str(exc).lower()
+    return "cuda" in message and "out of memory" in message
+
+
+def resolve_scaling_training_plan(
+    size_name: str,
+    requested_batch_size: int,
+    device_type: str,
+) -> Tuple[int, int]:
+    if requested_batch_size <= 0:
+        raise ValueError("requested_batch_size must be > 0")
+
+    max_micro_batch = SCALING_MICRO_BATCH_LIMITS.get(size_name, requested_batch_size)
+
+    # En CPU mantenemos el tamaño pedido salvo límites explícitos configurados.
+    if device_type != "cuda":
+        max_micro_batch = min(max_micro_batch, requested_batch_size)
+
+    micro_batch_size = max(1, min(requested_batch_size, max_micro_batch))
+    grad_accum_steps = max(1, math.ceil(requested_batch_size / micro_batch_size))
+    return micro_batch_size, grad_accum_steps
+
+
+def build_micro_batch_candidates(initial_micro_batch: int) -> List[int]:
+    if initial_micro_batch <= 0:
+        raise ValueError("initial_micro_batch must be > 0")
+
+    candidates: List[int] = []
+    current = initial_micro_batch
+    while True:
+        if current not in candidates:
+            candidates.append(current)
+        if current <= 1:
+            break
+        current = max(1, current // 2)
+    return candidates
+
+
+def _copy_loader_metadata(source: DataLoader, target: DataLoader) -> None:
+    for attr in DATASET_METADATA_ATTRIBUTES:
+        if hasattr(source, attr):
+            setattr(target, attr, getattr(source, attr))
+
+
+def build_scaled_dataloaders(
+    base_train_loader: DataLoader,
+    base_val_loader: DataLoader,
+    micro_batch_size: int,
+    num_workers: int,
+    pin_memory: bool,
+    seed: int = 42,
+) -> Tuple[DataLoader, DataLoader]:
+    if micro_batch_size <= 0:
+        raise ValueError("micro_batch_size must be > 0")
+
+    train_loader = DataLoader(
+        base_train_loader.dataset,
+        batch_size=micro_batch_size,
+        shuffle=True,
+        num_workers=num_workers,
+        pin_memory=pin_memory,
+        drop_last=getattr(base_train_loader, "drop_last", True),
+        generator=torch.Generator().manual_seed(seed),
+    )
+    val_loader = DataLoader(
+        base_val_loader.dataset,
+        batch_size=micro_batch_size,
+        shuffle=False,
+        num_workers=num_workers,
+        pin_memory=pin_memory,
+        drop_last=getattr(base_val_loader, "drop_last", False),
+    )
+
+    _copy_loader_metadata(base_train_loader, train_loader)
+    _copy_loader_metadata(base_val_loader, val_loader)
+    return train_loader, val_loader
+
+
+class StackedArchitectureModel(nn.Module):
+    """Apila N bloques de una arquitectura y devuelve hidden states."""
+
+    def __init__(
+        self,
+        embed_dim: int,
+        num_layers: int,
+        layer_builder: Callable[[], nn.Module],
+    ):
+        super().__init__()
+        if num_layers <= 0:
+            raise ValueError("num_layers must be > 0")
+
+        self.embed_dim = embed_dim
+        self.num_layers = num_layers
+        self.layers = nn.ModuleList([layer_builder() for _ in range(num_layers)])
+        self.final_norm = nn.LayerNorm(embed_dim)
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        hidden = x
+        for layer in self.layers:
+            hidden = layer(hidden)
+        return self.final_norm(hidden)
+
+    def sleep_cycle(self) -> bool:
+        executed_sleep_cycle = False
+        for layer in self.layers:
+            layer_sleep_cycle = getattr(layer, "sleep_cycle", None)
+            if callable(layer_sleep_cycle):
+                layer_sleep_cycle()
+                executed_sleep_cycle = True
+        return executed_sleep_cycle
+
+
+def _attach_model_flags(model: nn.Module, **flags: bool) -> nn.Module:
+    for name, value in flags.items():
+        setattr(model, name, value)
+    return model
+
+
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
@@ -500,6 +654,7 @@ def benchmark_local_reasoner(
     used_fallback_dataset: bool,
     evaluate_real_cases: bool = True,
     model_name: str = "HuggingFaceTB/SmolLM-135M",
+    size_category: str = "Reference (135M)",
 ) -> Optional[dict]:
     device_t = torch.device(device)
     profiling_backend = "cuda_event" if device_t.type == "cuda" else "perf_counter"
@@ -510,6 +665,7 @@ def benchmark_local_reasoner(
         print(f"[SmolLM] No se pudo cargar {model_name}: {exc}")
         return {
             "Model": "SmolLM-135M",
+            "SizeCategory": size_category,
             "FinalLoss": float("nan"),
             "TrainableParams": float("nan"),
             "TrainTimeSeconds": float("nan"),
@@ -575,6 +731,7 @@ def benchmark_local_reasoner(
 
     row = {
         "Model": "SmolLM-135M",
+        "SizeCategory": size_category,
         "FinalLoss": final_loss,
         "TrainableParams": trainable_params,
         "TrainTimeSeconds": elapsed_seconds,
@@ -610,13 +767,58 @@ def benchmark_local_reasoner(
     return row
 
 
-def build_models(embed_dim: int) -> Dict[str, torch.nn.Module]:
+def build_models(
+    embed_dim: int,
+    num_layers: int,
+    num_heads: int,
+) -> Dict[str, Callable[[], torch.nn.Module]]:
+    ff_dim = embed_dim * 4
+
     return {
-        "Transformer": StandardTransformerLayer(embed_dim=embed_dim, num_heads=8, ff_dim=256),
-        "DCA": DCA_Layer(embed_dim=embed_dim, sparsity=0.85),
-        "MOPN": MOPN_Layer(embed_dim=embed_dim, num_subspaces=4),
-        "SCT": SCT_Layer(embed_dim=embed_dim),
-        "GMA_MoE": GMA_MoE_Layer(embed_dim=embed_dim, num_experts=4),
+        "Transformer": lambda: _attach_model_flags(
+            StackedArchitectureModel(
+                embed_dim=embed_dim,
+                num_layers=num_layers,
+                layer_builder=lambda: StandardTransformerLayer(
+                    embed_dim=embed_dim,
+                    num_heads=num_heads,
+                    ff_dim=ff_dim,
+                ),
+            ),
+            uses_sparse_dca=False,
+        ),
+        "DCA": lambda: _attach_model_flags(
+            StackedArchitectureModel(
+                embed_dim=embed_dim,
+                num_layers=num_layers,
+                layer_builder=lambda: DCA_Layer(embed_dim=embed_dim, sparsity=0.85),
+            ),
+            uses_sparse_dca=True,
+        ),
+        "MOPN": lambda: _attach_model_flags(
+            StackedArchitectureModel(
+                embed_dim=embed_dim,
+                num_layers=num_layers,
+                layer_builder=lambda: MOPN_Layer(embed_dim=embed_dim, num_subspaces=4),
+            ),
+            uses_sparse_dca=False,
+        ),
+        "SCT": lambda: _attach_model_flags(
+            StackedArchitectureModel(
+                embed_dim=embed_dim,
+                num_layers=num_layers,
+                layer_builder=lambda: SCT_Layer(embed_dim=embed_dim),
+            ),
+            uses_sparse_dca=False,
+        ),
+        "GMA_MoE": lambda: _attach_model_flags(
+            StackedArchitectureModel(
+                embed_dim=embed_dim,
+                num_layers=num_layers,
+                layer_builder=lambda: GMA_MoE_Layer(embed_dim=embed_dim, num_experts=4),
+            ),
+            uses_sparse_dca=False,
+        ),
     }
 
 
@@ -637,6 +839,7 @@ def run_benchmark(
     evaluate_real_cases: bool = True,
     hf_reasoner_model_name: str = "HuggingFaceTB/SmolLM-135M",
     output_csv: str = "benchmark_results.csv",
+    scaling_configs: Optional[Dict[str, Dict[str, int]]] = None,
 ) -> pd.DataFrame:
     device, device_reason = select_benchmark_device()
     print(f"[{'ADVERTENCIA' if device == 'cpu' else 'INFO'}] Ejecutando benchmark en dispositivo: {device.upper()}")
@@ -648,7 +851,7 @@ def run_benchmark(
     device_t = torch.device(device)
     profiling_backend = "cuda_event" if device_t.type == "cuda" else "perf_counter"
 
-    train_loader, val_loader, tokenizer = create_real_dataloaders(
+    base_train_loader, base_val_loader, _tokenizer = create_real_dataloaders(
         dataset_name=dataset_name,
         dataset_config=dataset_config,
         split=dataset_split,
@@ -664,11 +867,11 @@ def run_benchmark(
         seed=42,
     )
 
-    resolved_dataset_name = getattr(train_loader, "_resolved_dataset_name", dataset_name)
-    resolved_dataset_config = getattr(train_loader, "_resolved_dataset_config", dataset_config)
-    requested_tokenizer_name = getattr(train_loader, "_requested_tokenizer_name", tokenizer_name)
-    resolved_tokenizer_name = getattr(train_loader, "_resolved_tokenizer_name", tokenizer_name)
-    used_fallback_dataset = bool(getattr(train_loader, "_used_fallback_dataset", False))
+    resolved_dataset_name = getattr(base_train_loader, "_resolved_dataset_name", dataset_name)
+    resolved_dataset_config = getattr(base_train_loader, "_resolved_dataset_config", dataset_config)
+    requested_tokenizer_name = getattr(base_train_loader, "_requested_tokenizer_name", tokenizer_name)
+    resolved_tokenizer_name = getattr(base_train_loader, "_resolved_tokenizer_name", tokenizer_name)
+    used_fallback_dataset = bool(getattr(base_train_loader, "_used_fallback_dataset", False))
     if used_fallback_dataset:
         print(
             "[WARN] Se uso fallback de dataset real: "
@@ -685,117 +888,324 @@ def run_benchmark(
             f"resolved={resolved_tokenizer_name} expected={CANONICAL_TOKENIZER}"
         )
 
-    train_tokens_per_epoch = count_tokens_per_epoch(train_loader)
-    train_tokens_total = int(train_tokens_per_epoch * epochs)
-
-    eval_loader = val_loader if evaluate_real_cases else None
-
-    models = build_models(embed_dim=embed_dim)
-
-    results = []
-
-    for model_name, model in models.items():
-        history = train_model(
-            model=model,
-            dataloader=train_loader,
-            epochs=epochs,
-            lr=lr,
-            device=device,
-        )
-
-        elapsed_seconds = sum(history.get("epoch_compute_ms", [])) / 1000.0
-        if elapsed_seconds <= 0:
-            elapsed_seconds = float("nan")
-
-        train_tokens_model = int(sum(history.get("epoch_tokens", [])))
-        if train_tokens_model <= 0:
-            train_tokens_model = train_tokens_total
-
-        trainable_params = count_trainable_parameters(model)
-
-        row = {
-            "Model": model_name,
-            "FinalLoss": float("nan"),
-            "TrainableParams": trainable_params,
-            "TrainTimeSeconds": elapsed_seconds,
-            "TrainTokens": train_tokens_model,
-            "TrainTokensPerSecond": safe_div(train_tokens_model, elapsed_seconds),
-            "SecondsPerMParam": safe_div(elapsed_seconds, trainable_params / 1_000_000),
-            "TrainFLOPs": float("nan"),
-            "RealCaseLoss": float("nan"),
-            "RealCaseAccuracy": float("nan"),
-            "RealCaseEvalSeconds": float("nan"),
-            "RequestedDatasetName": dataset_name,
-            "RequestedDatasetConfig": dataset_config,
-            "ResolvedDatasetName": resolved_dataset_name,
-            "ResolvedDatasetConfig": resolved_dataset_config,
-            "RequestedTokenizerName": requested_tokenizer_name,
-            "ResolvedTokenizerName": resolved_tokenizer_name,
-            "UsedFallbackDataset": used_fallback_dataset,
-            "Status": "ok",
+    resolved_scaling_configs = scaling_configs if scaling_configs is not None else SCALING_CONFIGS
+    if not resolved_scaling_configs:
+        resolved_scaling_configs = {
+            "Single": {
+                "embed_dim": embed_dim,
+                "num_layers": 6,
+                "num_heads": 8 if embed_dim % 8 == 0 else 4,
+            }
         }
 
-        sample_inputs, _ = next(iter(val_loader))
-        sample_inputs = sample_inputs.to(device_t)
+    results: List[Dict[str, object]] = []
 
-        row["TrainFLOPs"] = estimate_flops_torch_profiler(
-            lambda: model.output_head(model(model.token_embedding(sample_inputs))),
-            device=device_t,
+    for size_name, size_config in resolved_scaling_configs.items():
+        size_embed_dim = int(size_config["embed_dim"])
+        size_num_layers = int(size_config["num_layers"])
+        size_num_heads = int(size_config["num_heads"])
+
+        planned_micro_batch, planned_grad_accum = resolve_scaling_training_plan(
+            size_name=size_name,
+            requested_batch_size=batch_size,
+            device_type=device_t.type,
         )
-
-        if evaluate_real_cases and eval_loader is not None:
-            eval_metrics = evaluate_custom_model_on_real_cases(model, eval_loader, device)
-            row.update(eval_metrics)
-            row["FinalLoss"] = float(eval_metrics["RealCaseLoss"])
-        else:
-            row["FinalLoss"] = float(history["loss"][-1]) if history["loss"] else float("nan")
-
-        compliance = build_compliance_report(
-            model_name=model_name,
-            model=model,
-            dataset_name=resolved_dataset_name,
-            tokenizer_name=resolved_tokenizer_name,
-            device=device_t,
-            profiling_backend=profiling_backend,
-        )
-        row.update(compliance.to_dict())
-
-        results.append(row)
-        
-        # Guardado incremental para no perder datos en ejecuciones largas
-        try:
-            pd.DataFrame(results).to_csv(output_csv, index=False)
-        except Exception as e:
-            print(f"[WARN] No se pudo guardar CSV parcial: {e}")
+        micro_batch_candidates = build_micro_batch_candidates(planned_micro_batch)
 
         print(
-            f"[{model_name}] final_loss={row['FinalLoss']:.6f} "
-            f"params={trainable_params:,} time={elapsed_seconds:.2f}s "
-            f"tok/s={row['TrainTokensPerSecond']:.2f}"
+            f"\n[SCALING] {size_name} -> embed_dim={size_embed_dim}, "
+            f"layers={size_num_layers}, heads={size_num_heads}, target_batch={batch_size}, "
+            f"micro_batch_inicial={planned_micro_batch}, grad_accum_inicial={planned_grad_accum}"
         )
-        if evaluate_real_cases:
+
+        model_factories = build_models(
+            embed_dim=size_embed_dim,
+            num_layers=size_num_layers,
+            num_heads=size_num_heads,
+        )
+
+        for base_model_name, model_factory in model_factories.items():
+            model_label = f"{base_model_name}_{_size_suffix(size_name)}"
+            trained_model: Optional[torch.nn.Module] = None
+            history: Optional[Dict[str, list]] = None
+            effective_train_loader: Optional[DataLoader] = None
+            effective_eval_loader: Optional[DataLoader] = None
+            used_micro_batch = planned_micro_batch
+            used_grad_accum = planned_grad_accum
+            train_status = "ok"
+            last_exception: Optional[BaseException] = None
+
+            for micro_batch_candidate in micro_batch_candidates:
+                grad_accum_steps = max(1, math.ceil(batch_size / micro_batch_candidate))
+                used_micro_batch = micro_batch_candidate
+                used_grad_accum = grad_accum_steps
+                model_train_loader, model_val_loader = build_scaled_dataloaders(
+                    base_train_loader=base_train_loader,
+                    base_val_loader=base_val_loader,
+                    micro_batch_size=micro_batch_candidate,
+                    num_workers=num_workers,
+                    pin_memory=device_t.type == "cuda",
+                    seed=42,
+                )
+
+                try:
+                    candidate_model = model_factory()
+                    candidate_history = train_model(
+                        model=candidate_model,
+                        dataloader=model_train_loader,
+                        epochs=epochs,
+                        lr=lr,
+                        device=device,
+                        grad_accum_steps=grad_accum_steps,
+                    )
+                    trained_model = candidate_model
+                    history = candidate_history
+                    effective_train_loader = model_train_loader
+                    effective_eval_loader = model_val_loader
+                    used_micro_batch = micro_batch_candidate
+                    used_grad_accum = grad_accum_steps
+                    break
+                except RuntimeError as exc:
+                    last_exception = exc
+                    if device_t.type == "cuda" and is_cuda_oom_error(exc) and micro_batch_candidate > 1:
+                        next_micro_batch = max(1, micro_batch_candidate // 2)
+                        print(
+                            f"[WARN][{model_label}] CUDA OOM con micro_batch={micro_batch_candidate}. "
+                            f"Reintentando con micro_batch={next_micro_batch}."
+                        )
+                        if torch.cuda.is_available():
+                            torch.cuda.empty_cache()
+                        continue
+
+                    train_status = f"train_error: {exc}"
+                    break
+
+            if trained_model is None or history is None or effective_train_loader is None or effective_eval_loader is None:
+                if train_status == "ok":
+                    train_status = f"train_error: {last_exception}" if last_exception else "train_error: unknown"
+
+                row = {
+                    "Model": model_label,
+                    "SizeCategory": size_name,
+                    "FinalLoss": float("nan"),
+                    "TrainableParams": float("nan"),
+                    "TrainTimeSeconds": float("nan"),
+                    "TrainTokens": float("nan"),
+                    "TrainTokensPerSecond": float("nan"),
+                    "SecondsPerMParam": float("nan"),
+                    "TrainFLOPs": float("nan"),
+                    "RealCaseLoss": float("nan"),
+                    "RealCaseAccuracy": float("nan"),
+                    "RealCaseEvalSeconds": float("nan"),
+                    "MicroBatchSize": used_micro_batch,
+                    "GradAccumSteps": used_grad_accum,
+                    "EffectiveBatchSize": used_micro_batch * used_grad_accum,
+                    "R1_RealData": False,
+                    "R2_SparseDCA": False,
+                    "R3_TokenMaskingPMT": False,
+                    "R4_VLMDetach": False,
+                    "R5_PreciseProfiling": False,
+                    "EligibleForRanking": False,
+                    "RequestedDatasetName": dataset_name,
+                    "RequestedDatasetConfig": dataset_config,
+                    "ResolvedDatasetName": resolved_dataset_name,
+                    "ResolvedDatasetConfig": resolved_dataset_config,
+                    "RequestedTokenizerName": requested_tokenizer_name,
+                    "ResolvedTokenizerName": resolved_tokenizer_name,
+                    "UsedFallbackDataset": used_fallback_dataset,
+                    "Status": train_status,
+                }
+                results.append(row)
+
+                try:
+                    pd.DataFrame(results).to_csv(output_csv, index=False)
+                except Exception as exc:
+                    print(f"[WARN] No se pudo guardar CSV parcial: {exc}")
+
+                print(f"[ERROR][{model_label}] {train_status}")
+                continue
+
+            train_tokens_per_epoch = count_tokens_per_epoch(effective_train_loader)
+            train_tokens_total = int(train_tokens_per_epoch * epochs)
+
+            elapsed_seconds = sum(history.get("epoch_compute_ms", [])) / 1000.0
+            if elapsed_seconds <= 0:
+                elapsed_seconds = float("nan")
+
+            train_tokens_model = int(sum(history.get("epoch_tokens", [])))
+            if train_tokens_model <= 0:
+                train_tokens_model = train_tokens_total
+
+            trainable_params = count_trainable_parameters(trained_model)
+
+            row = {
+                "Model": model_label,
+                "SizeCategory": size_name,
+                "FinalLoss": float("nan"),
+                "TrainableParams": trainable_params,
+                "TrainTimeSeconds": elapsed_seconds,
+                "TrainTokens": train_tokens_model,
+                "TrainTokensPerSecond": safe_div(train_tokens_model, elapsed_seconds),
+                "SecondsPerMParam": safe_div(elapsed_seconds, trainable_params / 1_000_000),
+                "TrainFLOPs": float("nan"),
+                "RealCaseLoss": float("nan"),
+                "RealCaseAccuracy": float("nan"),
+                "RealCaseEvalSeconds": float("nan"),
+                "MicroBatchSize": used_micro_batch,
+                "GradAccumSteps": used_grad_accum,
+                "EffectiveBatchSize": used_micro_batch * used_grad_accum,
+                "RequestedDatasetName": dataset_name,
+                "RequestedDatasetConfig": dataset_config,
+                "ResolvedDatasetName": resolved_dataset_name,
+                "ResolvedDatasetConfig": resolved_dataset_config,
+                "RequestedTokenizerName": requested_tokenizer_name,
+                "ResolvedTokenizerName": resolved_tokenizer_name,
+                "UsedFallbackDataset": used_fallback_dataset,
+                "Status": "ok",
+            }
+
+            sample_inputs, _ = next(iter(effective_eval_loader))
+            sample_inputs = sample_inputs.to(device_t)
+
+            try:
+                row["TrainFLOPs"] = estimate_flops_torch_profiler(
+                    lambda: trained_model.output_head(trained_model(trained_model.token_embedding(sample_inputs))),
+                    device=device_t,
+                )
+            except Exception as exc:
+                row["TrainFLOPs"] = float("nan")
+                row["Status"] = f"profile_error: {exc}"
+
+            if evaluate_real_cases:
+                try:
+                    eval_metrics = evaluate_custom_model_on_real_cases(trained_model, effective_eval_loader, device)
+                    row.update(eval_metrics)
+                    row["FinalLoss"] = float(eval_metrics["RealCaseLoss"])
+                except Exception as exc:
+                    row["Status"] = f"eval_error: {exc}" if row["Status"] == "ok" else f"{row['Status']} | eval_error: {exc}"
+            else:
+                row["FinalLoss"] = float(history["loss"][-1]) if history["loss"] else float("nan")
+
+            compliance = build_compliance_report(
+                model_name=base_model_name,
+                model=trained_model,
+                dataset_name=resolved_dataset_name,
+                tokenizer_name=resolved_tokenizer_name,
+                device=device_t,
+                profiling_backend=profiling_backend,
+            )
+            row.update(compliance.to_dict())
+
+            results.append(row)
+
+            try:
+                pd.DataFrame(results).to_csv(output_csv, index=False)
+            except Exception as exc:
+                print(f"[WARN] No se pudo guardar CSV parcial: {exc}")
+
             print(
-                f"[{model_name}][real] loss={row['RealCaseLoss']:.6f} "
-                f"acc={row['RealCaseAccuracy']:.4f} time={row['RealCaseEvalSeconds']:.2f}s"
+                f"[{model_label}] final_loss={row['FinalLoss']:.6f} "
+                f"params={trainable_params:,} time={elapsed_seconds:.2f}s "
+                f"tok/s={row['TrainTokensPerSecond']:.2f} "
+                f"micro_batch={used_micro_batch} grad_accum={used_grad_accum}"
+            )
+            if evaluate_real_cases:
+                print(
+                    f"[{model_label}][real] loss={row['RealCaseLoss']:.6f} "
+                    f"acc={row['RealCaseAccuracy']:.4f} time={row['RealCaseEvalSeconds']:.2f}s"
+                )
+
+            if device_t.type == "cuda":
+                torch.cuda.empty_cache()
+
+    reasoner_size_category = "Reference (135M)"
+    reasoner_micro_batch, _ = resolve_scaling_training_plan(
+        size_name="Smol (135M)",
+        requested_batch_size=batch_size,
+        device_type=device_t.type,
+    )
+    reasoner_result: Optional[Dict[str, object]] = None
+
+    for reasoner_micro_batch_candidate in build_micro_batch_candidates(reasoner_micro_batch):
+        reasoner_train_loader, reasoner_val_loader = build_scaled_dataloaders(
+            base_train_loader=base_train_loader,
+            base_val_loader=base_val_loader,
+            micro_batch_size=reasoner_micro_batch_candidate,
+            num_workers=num_workers,
+            pin_memory=device_t.type == "cuda",
+            seed=42,
+        )
+        reasoner_train_tokens_per_epoch = count_tokens_per_epoch(reasoner_train_loader)
+
+        try:
+            reasoner_result = benchmark_local_reasoner(
+                dataloader=reasoner_train_loader,
+                validation_dataloader=reasoner_val_loader,
+                epochs=epochs,
+                lr=lr,
+                device=device,
+                train_tokens_per_epoch=reasoner_train_tokens_per_epoch,
+                requested_dataset_name=dataset_name,
+                requested_dataset_config=dataset_config,
+                resolved_dataset_name=resolved_dataset_name,
+                resolved_dataset_config=resolved_dataset_config,
+                requested_tokenizer_name=requested_tokenizer_name,
+                resolved_tokenizer_name=resolved_tokenizer_name,
+                used_fallback_dataset=used_fallback_dataset,
+                evaluate_real_cases=evaluate_real_cases,
+                model_name=hf_reasoner_model_name,
+                size_category=reasoner_size_category,
             )
 
-    reasoner_result = benchmark_local_reasoner(
-        dataloader=train_loader,
-        validation_dataloader=val_loader,
-        epochs=epochs,
-        lr=lr,
-        device=device,
-        train_tokens_per_epoch=train_tokens_per_epoch,
-        requested_dataset_name=dataset_name,
-        requested_dataset_config=dataset_config,
-        resolved_dataset_name=resolved_dataset_name,
-        resolved_dataset_config=resolved_dataset_config,
-        requested_tokenizer_name=requested_tokenizer_name,
-        resolved_tokenizer_name=resolved_tokenizer_name,
-        used_fallback_dataset=used_fallback_dataset,
-        evaluate_real_cases=evaluate_real_cases,
-        model_name=hf_reasoner_model_name,
-    )
+            if reasoner_result is not None:
+                reasoner_result["MicroBatchSize"] = reasoner_micro_batch_candidate
+                reasoner_result["GradAccumSteps"] = 1
+                reasoner_result["EffectiveBatchSize"] = reasoner_micro_batch_candidate
+            break
+        except RuntimeError as exc:
+            if device_t.type == "cuda" and is_cuda_oom_error(exc) and reasoner_micro_batch_candidate > 1:
+                next_reasoner_micro_batch = max(1, reasoner_micro_batch_candidate // 2)
+                print(
+                    "[WARN][SmolLM-135M] CUDA OOM con "
+                    f"micro_batch={reasoner_micro_batch_candidate}. Reintentando con micro_batch={next_reasoner_micro_batch}."
+                )
+                if torch.cuda.is_available():
+                    torch.cuda.empty_cache()
+                continue
+
+            reasoner_result = {
+                "Model": "SmolLM-135M",
+                "SizeCategory": reasoner_size_category,
+                "FinalLoss": float("nan"),
+                "TrainableParams": float("nan"),
+                "TrainTimeSeconds": float("nan"),
+                "TrainTokens": float("nan"),
+                "TrainTokensPerSecond": float("nan"),
+                "SecondsPerMParam": float("nan"),
+                "TrainFLOPs": float("nan"),
+                "RealCaseLoss": float("nan"),
+                "RealCaseAccuracy": float("nan"),
+                "RealCaseEvalSeconds": float("nan"),
+                "MicroBatchSize": reasoner_micro_batch_candidate,
+                "GradAccumSteps": 1,
+                "EffectiveBatchSize": reasoner_micro_batch_candidate,
+                "R1_RealData": False,
+                "R2_SparseDCA": False,
+                "R3_TokenMaskingPMT": False,
+                "R4_VLMDetach": False,
+                "R5_PreciseProfiling": False,
+                "EligibleForRanking": False,
+                "RequestedDatasetName": dataset_name,
+                "RequestedDatasetConfig": dataset_config,
+                "ResolvedDatasetName": resolved_dataset_name,
+                "ResolvedDatasetConfig": resolved_dataset_config,
+                "RequestedTokenizerName": requested_tokenizer_name,
+                "ResolvedTokenizerName": resolved_tokenizer_name,
+                "UsedFallbackDataset": used_fallback_dataset,
+                "Status": f"train_error: {exc}",
+            }
+            break
+
     if reasoner_result is not None:
         results.append(reasoner_result)
 
@@ -816,6 +1226,7 @@ def run_benchmark(
     report_columns = [
         "CompositeRank",
         "Model",
+        "SizeCategory",
         "EligibleForRanking",
         "ResolvedDatasetName",
         "ResolvedTokenizerName",

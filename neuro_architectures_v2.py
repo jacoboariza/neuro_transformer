@@ -57,7 +57,7 @@ class CEN_CounterfactualSimulation(nn.Module):
             # Evaluamos qué tan "coherente" o lógica es esta rama
             score = self.coherence_evaluator(simulated_future).mean()
             
-            if score > best_score:
+            if best_out is None or (score > best_score and not torch.isnan(score)):
                 best_score = score
                 best_out = simulated_future
                 

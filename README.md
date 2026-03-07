@@ -92,7 +92,9 @@ neuro_transformer/
 ├─ utils/
 │  ├─ compliance.py         # Gate de cumplimiento R1..R5 + elegibilidad de ranking
 │  ├─ profiler.py           # Timer por dispositivo + estimación FLOPs con torch.profiler
-│  └─ plots.py              # Generación de gráficos desde benchmark_results.csv
+│  ├─ plots.py              # Generación de gráficos desde benchmark_results.csv
+│  ├─ crossover_analysis.py # Detección de punto de cruce de loss por arquitectura/tamaño
+│  └─ brain_downloader.py   # Ejemplo de descarga de sinapsis FlyWire y matriz de adyacencia
 ├─ tests/
 │  └─ test_r2_r5_compliance.py # Tests de cumplimiento técnico (R2-R5 + gate R1)
 ├─ benchmark_results.csv    # Resultados tabulares exportados por el benchmark
@@ -142,6 +144,10 @@ Dependencias principales:
 - `pandas`
 - `matplotlib`
 
+Dependencias opcionales (solo utilidades específicas):
+- `networkx`
+- `caveclient` (requiere autenticación/token para acceso a FlyWire)
+
 > Nota: La primera ejecución con `HuggingFaceTB/SmolLM-135M` descargará pesos del Hub de Hugging Face. Para mayor estabilidad/rate limit, puede configurarse `HF_TOKEN`.
 
 ---
@@ -156,14 +162,23 @@ python experiments/run_benchmark.py
 
 Este comando:
 1. Carga datos reales desde `HuggingFaceFW/fineweb-edu` (fallback controlado) y tokeniza con `HuggingFaceTB/SmolLM-135M`.
-2. Entrena y compara:
+2. Ejecuta un estudio de **Scaling Laws** para cada arquitectura con una escalera de tamaños por defecto:
+   - `Micro (6M)`: `embed_dim=256`, `num_layers=6`, `num_heads=8`
+   - `Mini (15M)`: `embed_dim=384`, `num_layers=8`, `num_heads=12`
+   - `Small (35M)`: `embed_dim=512`, `num_layers=10`, `num_heads=16`
+   - `Base (85M)`: `embed_dim=768`, `num_layers=12`, `num_heads=12`
+   - `Smol (135M)`: `embed_dim=896`, `num_layers=14`, `num_heads=14`
+3. Entrena y compara en cada tamaño:
    - Transformer baseline
    - DCA
    - MOPN
    - SCT
    - GMA-MoE
    - SmolLM-135M (local, vía Hugging Face)
-3. Exporta resultados en CSV + ranking con columnas de compliance (`R1..R5`, `EligibleForRanking`), métricas de FLOPs y trazabilidad de origen (`RequestedDatasetName`, `ResolvedDatasetName`, `RequestedTokenizerName`, `ResolvedTokenizerName`, `UsedFallbackDataset`).
+4. Aplica prevención de OOM en GPU (especialmente en `Base`/`Smol`) mediante:
+   - reducción dinámica de micro-batch por tamaño
+   - gradient accumulation para mantener batch efectivo sin desbordar VRAM
+5. Exporta resultados en CSV + ranking con columnas de compliance (`R1..R5`, `EligibleForRanking`), métricas de FLOPs, metadatos de escalado (`SizeCategory`, `MicroBatchSize`, `GradAccumSteps`, `EffectiveBatchSize`) y trazabilidad de origen (`RequestedDatasetName`, `ResolvedDatasetName`, `RequestedTokenizerName`, `ResolvedTokenizerName`, `UsedFallbackDataset`).
 
 Si se activa el fallback de dataset (o se usa un tokenizer distinto al canónico), el benchmark seguirá ejecutándose para diagnóstico, pero quedará marcado como no elegible para ranking oficial (`R1_RealData=False`).
 
@@ -210,10 +225,48 @@ Tras la ejecución, se generan en la raíz del proyecto:
 
 El ranking compuesto aplica gate de compliance: cuando `EligibleForRanking=False`, las columnas `CompositeScore` y `CompositeRank` quedan vacías para ese modelo.
 
+En benchmark de escalado, la columna `Model` se exporta como `<Arquitectura>_<SizeCategory>` (por ejemplo `SCT_Mini(15M)`) y `SizeCategory` permite identificar el punto de la escalera de parámetros.
+
 En entrenamiento real:
 - `checkpoints/best_model.pt`
 
 El checkpoint incluye metadata de reproducibilidad/compliance: dataset solicitado vs resuelto, tokenizer solicitado vs resuelto, backend de profiling y flags `R1..R5`.
+
+### 4.5 Analizar punto de cruce (target loss)
+
+Para detectar automaticamente el primer tamano de cada arquitectura que alcanza una loss objetivo (por defecto `4.08`):
+
+```bash
+python utils/crossover_analysis.py --input-csv benchmark_results.csv --target-loss 4.08
+```
+
+Opciones utiles:
+
+```bash
+# Incluir tambien modelos no bio-inspirados (por ejemplo Transformer, SmolLM)
+python utils/crossover_analysis.py --input-csv benchmark_results.csv --include-non-bio
+
+# Filtrar arquitecturas concretas
+python utils/crossover_analysis.py --input-csv benchmark_results.csv --architectures DCA,SCT,GMA_MoE
+
+# Guardar en ruta personalizada
+python utils/crossover_analysis.py --input-csv benchmark_results.csv --output-csv benchmark_crossover.csv
+```
+
+La salida incluye, por arquitectura, si hubo cruce (`CrossoverFound`), en que `SizeCategory` ocurrio y la brecha respecto al objetivo (`LossGapToTarget`).
+
+### 4.6 Descargar conectoma de ejemplo (FlyWire, opcional)
+
+Para consultar sinapsis de un subconjunto de neuronas en FlyWire y construir una matriz de adyacencia dirigida:
+
+```bash
+python utils/brain_downloader.py
+```
+
+Notas:
+- Requiere `caveclient` y `networkx` instalados.
+- CAVEclient solicitará autenticación/token en la primera ejecución.
+- El script usa IDs de ejemplo y la tabla `synapses_nt_v120`; adapta los IDs para tu experimento.
 
 ---
 
