@@ -74,12 +74,38 @@ class FixedSparseLinear(nn.Module):
             
         return weight
 
+    def _sparse_mm_with_fallback(self, sparse_weight: torch.Tensor, x2d: torch.Tensor) -> torch.Tensor:
+        x2d_t = x2d.to(dtype=sparse_weight.dtype).transpose(0, 1)
+        try:
+            return torch.sparse.mm(sparse_weight, x2d_t).transpose(0, 1)
+        except NotImplementedError as exc:
+            message = str(exc)
+            is_sparse_amp_dtype_gap = (
+                "addmm_sparse_cuda" in message
+                and ("BFloat16" in message or "Half" in message)
+            )
+            if not is_sparse_amp_dtype_gap:
+                raise
+
+            if sparse_weight.is_cuda:
+                with torch.autocast(device_type="cuda", enabled=False):
+                    projected_fp32 = torch.sparse.mm(
+                        sparse_weight.to(dtype=torch.float32),
+                        x2d.to(dtype=torch.float32).transpose(0, 1),
+                    ).transpose(0, 1)
+            else:
+                projected_fp32 = torch.sparse.mm(
+                    sparse_weight.to(dtype=torch.float32),
+                    x2d.to(dtype=torch.float32).transpose(0, 1),
+                ).transpose(0, 1)
+            return projected_fp32
+
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         original_shape = x.shape
         x2d = x.reshape(-1, self.in_features)
 
         sparse_weight = self.sparse_weight()
-        projected = torch.sparse.mm(sparse_weight, x2d.to(dtype=sparse_weight.dtype).transpose(0, 1)).transpose(0, 1)
+        projected = self._sparse_mm_with_fallback(sparse_weight=sparse_weight, x2d=x2d)
 
         if self.bias is not None:
             projected = projected + self.bias

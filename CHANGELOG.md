@@ -2,6 +2,39 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Unreleased]
+
+- _Sin cambios registrados todavía._
+
+## [0.4.0] - 2026-03-08
+
+### Added
+- **Reusable model export bundle** in `experiments/train_real.py`:
+  - `model.safetensors` export for model weights
+  - `config.json` with model hyperparameters, best metrics, and training metadata
+  - `tokenizer/` artifact export via `save_pretrained(...)`
+  - `load_exported_model_bundle(...)` helper to reload exported models for downstream projects
+  - New CLI option `--export-dir` (default: `<output-dir>/best_model_export`)
+- **New tests** in `tests/test_train_real_export.py`:
+  - Export+load roundtrip validation
+  - Error handling when export config is missing
+- **Training progress display** in `experiments/train_real.py`:
+  - Progress lines per epoch with percentage, batch counters, running loss, elapsed time and ETA
+- **New tests**:
+  - `tests/test_train_real_progress.py` for progress formatting behavior
+  - `tests/test_dca_sparse_amp_fallback.py` for sparse AMP fallback behavior
+
+### Changed
+- `experiments/train_real.py` now exports a reusable bundle each time a new best validation checkpoint is saved.
+- `README.md` now documents exported artifact structure, downstream loading example and train progress output.
+
+### Fixed
+- `models/dca.py`: added fallback for CUDA sparse matmul under AMP when BF16/FP16 sparse kernels are unavailable (`addmm_sparse_cuda`).
+- `neuro_architectures_v2.py`: fixed dtype mismatch in token-masking assignments during autocast.
+
+### Security / Compliance
+- No hardcoded credentials detected in tracked project files.
+
 ## [0.3.0] - 2026-03-04
 
 ### Added

@@ -93,8 +93,7 @@ neuro_transformer/
 │  ├─ compliance.py         # Gate de cumplimiento R1..R5 + elegibilidad de ranking
 │  ├─ profiler.py           # Timer por dispositivo + estimación FLOPs con torch.profiler
 │  ├─ plots.py              # Generación de gráficos desde benchmark_results.csv
-│  ├─ crossover_analysis.py # Detección de punto de cruce de loss por arquitectura/tamaño
-│  └─ brain_downloader.py   # Ejemplo de descarga de sinapsis FlyWire y matriz de adyacencia
+│  └─ crossover_analysis.py # Detección de punto de cruce de loss por arquitectura/tamaño
 ├─ tests/
 │  └─ test_r2_r5_compliance.py # Tests de cumplimiento técnico (R2-R5 + gate R1)
 ├─ benchmark_results.csv    # Resultados tabulares exportados por el benchmark
@@ -193,6 +192,7 @@ python experiments/train_real.py \
   --seq-len 512 \
   --batch-size 8 \
   --epochs 5 \
+  --export-dir checkpoints/best_model_export \
   --pmt-exit-threshold 0.90 \
   --pmt-reward-weight 0.02 \
   --vicarious-loss-weight 0.005
@@ -204,13 +204,40 @@ Ejemplo rápido (smoke local):
 python experiments/train_real.py --num-samples 2000 --seq-len 128 --batch-size 4 --epochs 1
 ```
 
-### 4.3 Generar gráficos
+Cuando mejora la validacion, el script guarda:
+- Checkpoint de entrenamiento completo (`best_model.pt`) para reanudar training.
+- Bundle reutilizable para otros desarrollos:
+  - `model.safetensors` (pesos)
+  - `config.json` (metadatos + hiperparametros del modelo)
+  - `tokenizer/` (artefactos del tokenizer)
+
+Durante el entrenamiento se muestra avance por época en consola (porcentaje, batch actual y ETA), por ejemplo:
+`[epoch 001/005] avance= 37.0% (460/1243) loss=6.9821 elapsed=92.4s eta=157.3s`
+
+Por defecto el bundle se exporta en `checkpoints/best_model_export`. Puedes cambiarlo con `--export-dir`.
+
+### 4.3 Cargar un modelo exportado en otro desarrollo
+
+```python
+from pathlib import Path
+
+from experiments.train_real import load_exported_model_bundle
+
+model, artifact_config = load_exported_model_bundle(
+    export_dir=Path("checkpoints/best_model_export"),
+    device="cpu",
+)
+
+print(artifact_config["model_kwargs"])
+```
+
+### 4.4 Generar gráficos
 
 ```bash
 python utils/plots.py
 ```
 
-### 4.4 Archivos de salida
+### 4.5 Archivos de salida
 
 Tras la ejecución, se generan en la raíz del proyecto:
 - `benchmark_results.csv`
@@ -229,10 +256,13 @@ En benchmark de escalado, la columna `Model` se exporta como `<Arquitectura>_<Si
 
 En entrenamiento real:
 - `checkpoints/best_model.pt`
+- `checkpoints/best_model_export/model.safetensors`
+- `checkpoints/best_model_export/config.json`
+- `checkpoints/best_model_export/tokenizer/*`
 
 El checkpoint incluye metadata de reproducibilidad/compliance: dataset solicitado vs resuelto, tokenizer solicitado vs resuelto, backend de profiling y flags `R1..R5`.
 
-### 4.5 Analizar punto de cruce (target loss)
+### 4.6 Analizar punto de cruce (target loss)
 
 Para detectar automaticamente el primer tamano de cada arquitectura que alcanza una loss objetivo (por defecto `4.08`):
 
@@ -254,19 +284,6 @@ python utils/crossover_analysis.py --input-csv benchmark_results.csv --output-cs
 ```
 
 La salida incluye, por arquitectura, si hubo cruce (`CrossoverFound`), en que `SizeCategory` ocurrio y la brecha respecto al objetivo (`LossGapToTarget`).
-
-### 4.6 Descargar conectoma de ejemplo (FlyWire, opcional)
-
-Para consultar sinapsis de un subconjunto de neuronas en FlyWire y construir una matriz de adyacencia dirigida:
-
-```bash
-python utils/brain_downloader.py
-```
-
-Notas:
-- Requiere `caveclient` y `networkx` instalados.
-- CAVEclient solicitará autenticación/token en la primera ejecución.
-- El script usa IDs de ejemplo y la tabla `synapses_nt_v120`; adapta los IDs para tu experimento.
 
 ---
 

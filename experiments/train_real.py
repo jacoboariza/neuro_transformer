@@ -1,12 +1,21 @@
 import argparse
+import json
 import math
 import sys
 import time
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Dict, Tuple
 
 import torch
 import torch.nn.functional as F
+
+try:
+    from safetensors.torch import load_file as load_safetensors_file
+    from safetensors.torch import save_file as save_safetensors_file
+except ImportError:  # pragma: no cover - entorno sin safetensors
+    load_safetensors_file = None
+    save_safetensors_file = None
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 if str(PROJECT_ROOT) not in sys.path:
@@ -36,6 +45,11 @@ class NeuroModelV2ForLM(torch.nn.Module):
         hidden_states = self.token_embedding(input_ids)
         logits, layers_used, vicarious_loss = self.core(hidden_states, exit_threshold=exit_threshold)
         return logits, layers_used, vicarious_loss
+
+
+EXPORT_WEIGHTS_FILENAME = "model.safetensors"
+EXPORT_CONFIG_FILENAME = "config.json"
+EXPORT_TOKENIZER_DIRNAME = "tokenizer"
 
 
 def select_device(preferred: str = "auto") -> torch.device:
@@ -127,6 +141,116 @@ def save_checkpoint(
     return ckpt_path
 
 
+def export_model_bundle(
+    export_dir: Path,
+    model: NeuroModelV2ForLM,
+    tokenizer,
+    training_config: Dict,
+    checkpoint_path: Path,
+    epoch: int,
+    train_loss: float,
+    val_loss: float,
+) -> Path:
+    """
+    Exporta un artefacto reutilizable para otros desarrollos:
+    - model.safetensors
+    - config.json (metadatos + hiperparametros)
+    - tokenizer/ (si el tokenizer soporta save_pretrained)
+    """
+    if save_safetensors_file is None:
+        raise RuntimeError("safetensors no está instalado. Agrega 'safetensors' al entorno para exportar artefactos.")
+
+    export_dir.mkdir(parents=True, exist_ok=True)
+
+    state_dict_cpu = {
+        name: tensor.detach().cpu().contiguous()
+        for name, tensor in model.state_dict().items()
+    }
+    safetensors_metadata = {
+        "architecture": "NeuroModelV2ForLM",
+        "exported_at_utc": datetime.now(timezone.utc).isoformat(),
+    }
+    save_safetensors_file(
+        state_dict_cpu,
+        str(export_dir / EXPORT_WEIGHTS_FILENAME),
+        metadata=safetensors_metadata,
+    )
+
+    artifact_config = {
+        "format_version": 1,
+        "architecture": "NeuroModelV2ForLM",
+        "weights_file": EXPORT_WEIGHTS_FILENAME,
+        "checkpoint_file": checkpoint_path.name,
+        "tokenizer_subdir": EXPORT_TOKENIZER_DIRNAME,
+        "model_kwargs": {
+            "vocab_size": int(model.vocab_size),
+            "embed_dim": int(model.embed_dim),
+            "num_layers": int(model.num_layers),
+        },
+        "best_metrics": {
+            "epoch": int(epoch),
+            "train_loss": float(train_loss),
+            "val_loss": float(val_loss),
+        },
+        "training_config": training_config,
+        "exported_at_utc": datetime.now(timezone.utc).isoformat(),
+    }
+
+    config_path = export_dir / EXPORT_CONFIG_FILENAME
+    with config_path.open("w", encoding="utf-8") as handle:
+        json.dump(artifact_config, handle, indent=2, ensure_ascii=True)
+        handle.write("\n")
+
+    if tokenizer is not None and hasattr(tokenizer, "save_pretrained"):
+        tokenizer_dir = export_dir / EXPORT_TOKENIZER_DIRNAME
+        tokenizer_dir.mkdir(parents=True, exist_ok=True)
+        tokenizer.save_pretrained(str(tokenizer_dir))
+
+    return export_dir
+
+
+def load_exported_model_bundle(export_dir: Path, device: str = "cpu") -> Tuple[NeuroModelV2ForLM, Dict]:
+    """
+    Carga un modelo exportado con export_model_bundle(...).
+    Devuelve el modelo listo para inferencia y el config del artefacto.
+    """
+    if load_safetensors_file is None:
+        raise RuntimeError("safetensors no está instalado. Agrega 'safetensors' al entorno para cargar artefactos.")
+
+    export_dir = Path(export_dir)
+    config_path = export_dir / EXPORT_CONFIG_FILENAME
+    if not config_path.exists():
+        raise FileNotFoundError(f"No existe config de artefacto: {config_path}")
+
+    with config_path.open("r", encoding="utf-8") as handle:
+        artifact_config = json.load(handle)
+
+    model_kwargs = artifact_config.get("model_kwargs", {})
+    required_model_keys = ("vocab_size", "embed_dim", "num_layers")
+    missing_keys = [key for key in required_model_keys if key not in model_kwargs]
+    if missing_keys:
+        raise ValueError(f"Faltan claves en model_kwargs del artefacto: {missing_keys}")
+
+    model = NeuroModelV2ForLM(
+        vocab_size=int(model_kwargs["vocab_size"]),
+        embed_dim=int(model_kwargs["embed_dim"]),
+        num_layers=int(model_kwargs["num_layers"]),
+    )
+
+    weights_filename = artifact_config.get("weights_file", EXPORT_WEIGHTS_FILENAME)
+    weights_path = export_dir / weights_filename
+    if not weights_path.exists():
+        raise FileNotFoundError(f"No existe archivo de pesos exportado: {weights_path}")
+
+    state_dict = load_safetensors_file(str(weights_path), device="cpu")
+    model.load_state_dict(state_dict, strict=True)
+
+    device_t = torch.device(device)
+    model = model.to(device_t)
+    model.eval()
+    return model, artifact_config
+
+
 def compute_composite_loss(
     logits: torch.Tensor,
     targets: torch.Tensor,
@@ -150,6 +274,31 @@ def compute_composite_loss(
         - pmt_reward_weight * pmt_reward
     )
     return total_loss, prediction_loss, depth_ratio, early_exit_bonus, float(pmt_reward.item())
+
+
+def format_train_progress(
+    epoch: int,
+    total_epochs: int,
+    batch_idx: int,
+    total_batches: int,
+    elapsed_seconds: float,
+    running_train_loss: float,
+) -> str:
+    safe_total_batches = max(1, int(total_batches))
+    progress = min(1.0, max(0.0, float(batch_idx) / float(safe_total_batches)))
+
+    if 0.0 < progress < 1.0:
+        eta_seconds = max(0.0, elapsed_seconds * (1.0 / progress - 1.0))
+    else:
+        eta_seconds = 0.0
+
+    return (
+        f"[epoch {epoch:03d}/{total_epochs:03d}] "
+        f"avance={progress * 100.0:5.1f}% "
+        f"({batch_idx}/{safe_total_batches}) "
+        f"loss={running_train_loss:.4f} "
+        f"elapsed={elapsed_seconds:.1f}s eta={eta_seconds:.1f}s"
+    )
 
 
 def training_step(
@@ -389,12 +538,17 @@ def train(args: argparse.Namespace) -> None:
 
     best_val_loss = float("inf")
     output_dir = Path(args.output_dir)
+    export_dir = Path(args.export_dir) if args.export_dir else output_dir / "best_model_export"
 
     trainable_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
     print(
         f"Modelo: NeuroModelV2 | capas={args.num_layers} | params={trainable_params:,} | "
         f"exit_threshold={args.pmt_exit_threshold}"
     )
+
+    total_train_batches = max(1, len(train_loader))
+    progress_update_stride = max(1, total_train_batches // 100)
+    interactive_stdout = sys.stdout.isatty()
 
     for epoch in range(1, args.epochs + 1):
         model.train()
@@ -410,7 +564,7 @@ def train(args: argparse.Namespace) -> None:
         train_compute_ms_sum = 0.0
         train_batch_count = 0
 
-        for batch in train_loader:
+        for batch_idx, batch in enumerate(train_loader, start=1):
             step_stats = training_step(
                 model=model,
                 batch=batch,
@@ -435,6 +589,26 @@ def train(args: argparse.Namespace) -> None:
             train_pmt_reward_sum += step_stats["pmt_reward"]
             train_compute_ms_sum += step_stats["step_ms"]
             train_batch_count += 1
+
+            if (
+                batch_idx == 1
+                or batch_idx == total_train_batches
+                or batch_idx % progress_update_stride == 0
+            ):
+                running_train_loss = train_total_loss_sum / max(train_tokens, 1)
+                elapsed_seconds = time.time() - epoch_start
+                progress_line = format_train_progress(
+                    epoch=epoch,
+                    total_epochs=args.epochs,
+                    batch_idx=batch_idx,
+                    total_batches=total_train_batches,
+                    elapsed_seconds=elapsed_seconds,
+                    running_train_loss=running_train_loss,
+                )
+                if interactive_stdout and batch_idx < total_train_batches:
+                    print(progress_line.ljust(140), end="\r", flush=True)
+                else:
+                    print(progress_line)
 
         train_loss = train_total_loss_sum / max(train_tokens, 1)
         train_prediction_loss = train_prediction_loss_sum / max(train_tokens, 1)
@@ -477,6 +651,26 @@ def train(args: argparse.Namespace) -> None:
 
         if val_loss < best_val_loss:
             best_val_loss = val_loss
+            checkpoint_config = {
+                "dataset_name": args.dataset_name,
+                "dataset_config": args.dataset_config,
+                "resolved_dataset_name": resolved_dataset_name,
+                "resolved_dataset_config": resolved_dataset_config,
+                "requested_tokenizer_name": requested_tokenizer_name,
+                "resolved_tokenizer_name": resolved_tokenizer_name,
+                "used_fallback_dataset": used_fallback_dataset,
+                "dataset_split": args.dataset_split,
+                "tokenizer_name": args.tokenizer_name,
+                "seq_len": args.seq_len,
+                "batch_size": args.batch_size,
+                "embed_dim": args.embed_dim,
+                "num_layers": args.num_layers,
+                "pmt_exit_threshold": args.pmt_exit_threshold,
+                "pmt_reward_weight": args.pmt_reward_weight,
+                "vicarious_loss_weight": args.vicarious_loss_weight,
+                "profiling_backend": profiling_backend,
+                "compliance": compliance_report.to_dict(),
+            }
             ckpt_path = save_checkpoint(
                 output_dir=output_dir,
                 model=model,
@@ -485,28 +679,21 @@ def train(args: argparse.Namespace) -> None:
                 epoch=epoch,
                 train_loss=train_loss,
                 val_loss=val_loss,
-                config={
-                    "dataset_name": args.dataset_name,
-                    "dataset_config": args.dataset_config,
-                    "resolved_dataset_name": resolved_dataset_name,
-                    "resolved_dataset_config": resolved_dataset_config,
-                    "requested_tokenizer_name": requested_tokenizer_name,
-                    "resolved_tokenizer_name": resolved_tokenizer_name,
-                    "used_fallback_dataset": used_fallback_dataset,
-                    "dataset_split": args.dataset_split,
-                    "tokenizer_name": args.tokenizer_name,
-                    "seq_len": args.seq_len,
-                    "batch_size": args.batch_size,
-                    "embed_dim": args.embed_dim,
-                    "num_layers": args.num_layers,
-                    "pmt_exit_threshold": args.pmt_exit_threshold,
-                    "pmt_reward_weight": args.pmt_reward_weight,
-                    "vicarious_loss_weight": args.vicarious_loss_weight,
-                    "profiling_backend": profiling_backend,
-                    "compliance": compliance_report.to_dict(),
-                },
+                config=checkpoint_config,
             )
             print(f"Nuevo mejor checkpoint guardado en: {ckpt_path.resolve()} | val_loss={val_loss:.4f}")
+
+            exported_path = export_model_bundle(
+                export_dir=export_dir,
+                model=model,
+                tokenizer=tokenizer,
+                training_config=checkpoint_config,
+                checkpoint_path=ckpt_path,
+                epoch=epoch,
+                train_loss=train_loss,
+                val_loss=val_loss,
+            )
+            print(f"Modelo exportado para reutilizacion en: {exported_path.resolve()}")
 
 
 def parse_args() -> argparse.Namespace:
@@ -544,6 +731,12 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--amp-dtype", default="bf16", choices=["bf16", "fp16"])
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--output-dir", default="checkpoints")
+    parser.add_argument(
+        "--export-dir",
+        default=None,
+        help="Directorio del bundle reutilizable (model.safetensors + config + tokenizer). "
+        "Por defecto: <output-dir>/best_model_export",
+    )
 
     return parser.parse_args()
 

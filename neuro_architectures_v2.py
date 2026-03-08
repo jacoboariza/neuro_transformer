@@ -150,6 +150,11 @@ class NeuroModelV2(nn.Module):
             active_logits = self.early_exits[i].exit_predictor(x_flat[active_flat])
             active_confidence = torch.softmax(active_logits, dim=-1).amax(dim=-1)
 
+            if active_logits.dtype != logits_flat.dtype:
+                active_logits = active_logits.to(dtype=logits_flat.dtype)
+            if active_confidence.dtype != confidence_flat.dtype:
+                active_confidence = active_confidence.to(dtype=confidence_flat.dtype)
+
             logits_flat[active_flat] = active_logits
             confidence_flat[active_flat] = active_confidence
 

@@ -26,6 +26,7 @@ Thumbs.db
 
 # Generated artifacts
 checkpoints/
+checkpoints_*/
 benchmark_results*.csv
 benchmark_*.csv
 benchmark_*.png
