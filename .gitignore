@@ -30,6 +30,8 @@ checkpoints_*/
 benchmark_results*.csv
 benchmark_*.csv
 benchmark_*.png
+eval_real_metrics*.json
+*_diagnosis*.json
 
 # Jupyter
 .ipynb_checkpoints/

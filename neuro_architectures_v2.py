@@ -1,3 +1,5 @@
+import math
+
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -13,11 +15,37 @@ from models.dca import DCA_Layer as SparseDCA_Layer
 # NUEVOS MÓDULOS (v2.0)
 # =====================================================================
 
+def entropy_confidence(logits: torch.Tensor) -> torch.Tensor:
+    """
+    Confianza normalizada por entropía, independiente del tamaño del vocabulario.
+
+    Fórmula:
+        H(p)       = -Σ p·log(p)           (entropía de la distribución)
+        H_max      = log(vocab_size)        (entropía máxima = distribución uniforme)
+        confidence  = 1 - H(p) / H_max      (0 = uniforme, 1 = one-hot)
+
+    Ventajas sobre max(softmax):
+        - Produce valores en [0, 1] significativos sin importar vocab_size.
+        - Un threshold de 0.85 significa "85% del camino de uniforme a certeza total".
+        - max(softmax) sobre 49K clases raramente supera 0.20, haciendo
+          cualquier threshold > 0.30 inalcanzable.
+    """
+    vocab_size = logits.size(-1)
+    log_vocab = math.log(vocab_size)
+    log_probs = F.log_softmax(logits, dim=-1)
+    probs = log_probs.exp()
+    entropy = -(probs * log_probs).sum(dim=-1)
+    confidence = 1.0 - entropy / log_vocab
+    return confidence.clamp(min=0.0, max=1.0)
+
+
 class PMT_EarlyExit(nn.Module):
     """
     Predictive Minimalist Trace (PMT) - Módulo de Salida Temprana.
     Evalúa si la representación latente ya tiene suficiente "confianza"
     o "baja sorpresa". Si es así, corta el cálculo de las siguientes capas.
+
+    La confianza se mide con entropía normalizada (independiente del vocab_size).
     """
     def __init__(self, embed_dim, num_classes):
         super().__init__()
@@ -27,8 +55,7 @@ class PMT_EarlyExit(nn.Module):
     def forward(self, x):
         # Devuelve logits y confianza por token.
         logits = self.exit_predictor(x)
-        probs = F.softmax(logits, dim=-1)
-        confidence = probs.amax(dim=-1)
+        confidence = entropy_confidence(logits)
         return logits, confidence
 
 class CEN_CounterfactualSimulation(nn.Module):
@@ -148,7 +175,7 @@ class NeuroModelV2(nn.Module):
             confidence_flat = x.new_ones((x_flat.size(0),))
 
             active_logits = self.early_exits[i].exit_predictor(x_flat[active_flat])
-            active_confidence = torch.softmax(active_logits, dim=-1).amax(dim=-1)
+            active_confidence = entropy_confidence(active_logits)
 
             if active_logits.dtype != logits_flat.dtype:
                 active_logits = active_logits.to(dtype=logits_flat.dtype)

@@ -3,7 +3,7 @@ import unittest
 import torch
 
 from models.dca import DCA_Layer
-from neuro_architectures_v2 import NeuroModelV2, VLM_VicariousStudent
+from neuro_architectures_v2 import NeuroModelV2, VLM_VicariousStudent, entropy_confidence
 from utils.compliance import CANONICAL_DATASET, CANONICAL_TOKENIZER, build_compliance_report
 from utils.profiler import DeviceTimer, estimate_flops_torch_profiler
 
@@ -19,6 +19,29 @@ class RequirementsComplianceTests(unittest.TestCase):
         x = torch.randn(2, 8, 16)
         out = model(x)
         self.assertEqual(tuple(out.shape), tuple(x.shape))
+
+    def test_r3_entropy_confidence_is_vocab_size_independent(self):
+        """entropy_confidence must produce meaningful [0,1] values regardless of vocab_size."""
+        torch.manual_seed(42)
+        batch, seq = 2, 8
+
+        for vocab_size in [32, 1000, 49152]:
+            logits = torch.randn(batch, seq, vocab_size)
+            conf = entropy_confidence(logits)
+            self.assertEqual(tuple(conf.shape), (batch, seq))
+            self.assertTrue((conf >= 0.0).all().item(), f"conf < 0 for V={vocab_size}")
+            self.assertTrue((conf <= 1.0).all().item(), f"conf > 1 for V={vocab_size}")
+
+        # Uniform logits → confidence ≈ 0
+        uniform_logits = torch.zeros(1, 1, 100)
+        conf_uniform = entropy_confidence(uniform_logits)
+        self.assertAlmostEqual(float(conf_uniform.item()), 0.0, places=4)
+
+        # One-hot logits → confidence ≈ 1
+        one_hot_logits = torch.full((1, 1, 100), -1e9)
+        one_hot_logits[0, 0, 0] = 10.0
+        conf_one_hot = entropy_confidence(one_hot_logits)
+        self.assertGreater(float(conf_one_hot.item()), 0.99)
 
     def test_r3_pmt_token_masking_depth_behavior(self):
         model = NeuroModelV2(embed_dim=16, num_classes=32, num_layers=4)

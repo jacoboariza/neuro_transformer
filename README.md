@@ -231,6 +231,32 @@ model, artifact_config = load_exported_model_bundle(
 print(artifact_config["model_kwargs"])
 ```
 
+### 4.3.1 Validar un DCA entrenado en casos reales (script fijo, CUDA-first)
+
+```bash
+python experiments/eval_dca_real.py \
+  --export-dir checkpoints_dca/best_model_export \
+  --device auto \
+  --amp-dtype auto
+```
+
+Opciones recomendadas para validar en GPU de forma estricta:
+
+```bash
+python experiments/eval_dca_real.py \
+  --export-dir checkpoints_dca/best_model_export \
+  --device cuda \
+  --require-cuda \
+  --batch-size 8 \
+  --num-samples 10000
+```
+
+El script:
+- valida que CUDA sea realmente utilizable (no solo visible),
+- activa optimizaciones de backend CUDA (TF32 + cuDNN benchmark),
+- selecciona AMP automaticamente (`bf16` si está soportado, si no `fp16`),
+- guarda reporte en `checkpoints_dca/best_model_export/eval_real_metrics.json`.
+
 ### 4.4 Generar gráficos
 
 ```bash

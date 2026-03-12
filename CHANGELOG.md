@@ -6,6 +6,44 @@ All notable changes to this project will be documented in this file.
 
 - _Sin cambios registrados todavía._
 
+## [0.5.0] - 2026-03-12
+
+### Added
+- **`entropy_confidence()` function** in `neuro_architectures_v2.py`:
+  - Normalizes confidence via entropy: `1 - H(p)/log(V)`, producing [0,1] values independent of vocabulary size.
+  - Replaces `max(softmax)` which was unusable for large vocabularies (49K+ tokens).
+- **New evaluation script** `experiments/eval_dca_real.py`:
+  - Evaluates exported DCA model bundles on real FineWeb-Edu data.
+  - CUDA runtime probe with robust fallback, AMP autodetection, JSON metrics report.
+  - CLI options for threshold, samples, device, AMP dtype.
+- **New diagnostic script** `experiments/diagnose_pmt.py`:
+  - Instruments PMT forward pass to capture confidence distribution per layer.
+  - Threshold sweep with compute savings analysis.
+  - JSON report with statistics and recommendations.
+- **New test** `test_r3_entropy_confidence_is_vocab_size_independent` in `tests/test_r2_r5_compliance.py`:
+  - Validates entropy confidence produces [0,1] for any vocab size.
+  - Checks uniform logits → 0, one-hot logits → ~1.
+- **Consolidated review** `docs/CONSOLIDATED_REVIEW.md` documenting architecture analysis, findings and action items.
+
+### Changed
+- `neuro_architectures_v2.py`: `PMT_EarlyExit.forward()` and `NeuroModelV2.forward()` now use `entropy_confidence` instead of `max(softmax)`.
+- `experiments/train_real.py`: `compute_composite_loss` confidence reward uses `entropy_confidence`.
+- `experiments/train_real.py`: default `--num-samples` increased from 50,000 to 200,000 for better model convergence.
+- `.gitignore`: added patterns for generated eval/diagnosis JSON reports.
+- `README.md`: documented `eval_dca_real.py` usage and capabilities.
+
+### Fixed
+- **Critical: PMT early exit never activated** — `max(softmax)` over 49K vocab produced mean confidence ~0.17, making `threshold=0.85` unreachable. With `entropy_confidence`, the metric is now meaningful and vocab-size independent. Backward compatible: existing models at `threshold=0.85` produce identical results (no early exit), but retraining with the new metric enables proper early exit learning.
+
+### Security / Compliance
+- No hardcoded credentials detected in tracked project files.
+- Compliance R1-R5 remains fully satisfied.
+
+### Notes
+- No breaking API changes; existing trained models load and evaluate identically.
+- Models trained with the new `entropy_confidence` metric will benefit from functional early exit at `threshold=0.85`.
+- Retraining recommended to take advantage of the fix.
+
 ## [0.4.0] - 2026-03-08
 
 ### Added

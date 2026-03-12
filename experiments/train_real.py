@@ -22,7 +22,7 @@ if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
 from data.real_data import create_real_dataloaders
-from neuro_architectures_v2 import NeuroModelV2
+from neuro_architectures_v2 import NeuroModelV2, entropy_confidence
 from utils.compliance import CANONICAL_DATASET, CANONICAL_TOKENIZER, build_compliance_report
 from utils.profiler import DeviceTimer
 
@@ -265,7 +265,7 @@ def compute_composite_loss(
     depth_ratio = float(layers_used) / float(max(num_layers, 1))
     early_exit_bonus = max(0.0, 1.0 - depth_ratio)
     early_exit_bonus_t = logits.new_tensor(early_exit_bonus)
-    confidence_reward = torch.softmax(logits, dim=-1).amax(dim=-1).mean()
+    confidence_reward = entropy_confidence(logits).mean()
     pmt_reward = early_exit_bonus_t * confidence_reward
 
     total_loss = (
@@ -707,7 +707,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--text-column", default=None)
     parser.add_argument("--tokenizer-name", default=CANONICAL_TOKENIZER)
 
-    parser.add_argument("--num-samples", type=int, default=50_000)
+    parser.add_argument("--num-samples", type=int, default=200_000)
     parser.add_argument("--seq-len", type=int, default=512)
     parser.add_argument("--batch-size", type=int, default=8)
     parser.add_argument("--val-split", type=float, default=0.05)
